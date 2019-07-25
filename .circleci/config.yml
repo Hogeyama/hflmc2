@@ -84,11 +84,11 @@ aliases:
               make install-lib
               make
               make install
-        - run:
-            name: Install direct dependencies
-            command: |
-              # TODO better practice
-              opam install oUnit
+        # - run:
+        #     name: Install direct dependencies
+        #     command: |
+        #       # TODO better practice
+        #       opam install oUnit
         - run:
             name: Install horsat2
             command: |
