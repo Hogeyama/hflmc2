@@ -1,6 +1,7 @@
 version: 2.1
 
 aliases:
+  - &default_env
   - &install_z3
       run:
         name: Install Z3
