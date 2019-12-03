@@ -231,8 +231,11 @@ let rec abstract_coerce
           let qs = FormulaSet.to_array preds_set' in
           let l = Array.length qs in
           let k = Array.length ps in
-          let one_to_l = List.(range 0 l) in (* to be honest, 0 to l-1 *)
-          let one_to_k = List.(range 0 k) in
+          let one_to_l = List.range 0 l in (* to be honest, 0 to l-1 *)
+          let one_to_k = List.range 0 k in
+          Log.info begin fun m -> m ~header:"Coerce" "%d ~> %d"
+            (Array.length ps) (Array.length qs)
+          end;
           Log.debug begin fun m -> m ~header:"Coerce" "%a ~> %a"
             Print.(list_set formula) (Array.to_list ps)
             Print.(list_set formula) (Array.to_list qs)
@@ -254,21 +257,22 @@ let rec abstract_coerce
           let phi's =
             let _IJs =
               List.map _Is ~f:begin fun _I ->
-                let qs' = List.(map ~f:(Array.get qs) _I) in
+                let qs' = List.map ~f:(Array.get qs) _I in
                 let _Q  = Formula.mk_ands (guard::qs') in
-                (* Q => \/i(/\Ji) を満たす極大の J1,...,Jh の集合を得る *)
+                (* Q => \/i(/\Ji) を満たす極大の J1,...,Jh を得る *)
                 let _Js =
-                  if FpatInterface.is_unsat _Q then
-                    [one_to_k] (* /\{P1,...,Pk}が唯一の極大元 *)
-                  else begin
-                    FpatInterface.strongest_post_cond _Q ps
-                  end
+                  if FpatInterface.is_unsat _Q
+                  then None
+                  else Some (FpatInterface.strongest_post_cond _Q ps)
                 in
                 Log.debug begin fun m ->
-                  let x =
-                    Formula.mk_ors @@ List.map _Js ~f:begin fun _J ->
-                      Formula.mk_ands @@ List.map _J ~f:(Array.get ps)
-                    end
+                  let x = Formula.mk_ors @@
+                    match _Js with
+                    | None -> []
+                    | Some _Js ->
+                        List.map _Js ~f:begin fun _J ->
+                          Formula.mk_ands @@ List.map _J ~f:(Array.get ps)
+                        end
                   in
                   m ~header:"CoerceAtom" "@[<v>%a ===> %a@]"
                     Print.formula _Q
@@ -279,7 +283,7 @@ let rec abstract_coerce
             in
             let _IJs = _IJs
               (* Group by equality of Js *)
-              |> List.sort ~compare:Fn.(on snd List.(compare (compare Int.compare)))
+              |> List.sort ~compare:Fn.(on snd [%compare : Int.t List.t List.t Option.t])
               |> List.group ~break:Fn.(on snd (<>))
               (* Remove I which has its subset in the same group *)
               |> List.concat_map ~f:(List.maximals' Fn.(on fst (flip List.subset)))
@@ -299,7 +303,7 @@ let rec abstract_coerce
               in
               Hfl.mk_ands ~kind:`Inserted
                @@ List.map _I ~f:mk_var
-                @ List.map _Js ~f:mk_atom
+                @ Option.value_map _Js ~default:[] ~f:(List.map ~f:mk_atom)
             end
           in Hfl.mk_ors ~kind:`Inserted phi's
       | TyArrow({ty=TyInt preds ;_} as x , sigma )
