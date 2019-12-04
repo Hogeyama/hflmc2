@@ -70,9 +70,17 @@ type arith_var = [ `I of TraceVar.t | `E of unit Id.t ]
 (* type arith_var = TraceVar.t *)
   [@@deriving eq,ord,show,iter,map,fold,sexp]
 
+module ArithVarKey = struct
+  type nonrec t = arith_var
+  let sexp_of_t = sexp_of_arith_var
+  let t_of_sexp = arith_var_of_sexp
+  let compare   = compare_arith_var
+end
+module ArithVarMap = Map.Make'(ArithVarKey)
+module ArithVarSet = Set.Make'(ArithVarKey)
+
 let pp_hum_arith_var : arith_var Print.t =
   fun ppf -> function
-    (* | tv -> TraceVar.pp_hum ppf tv *)
     | `I tv -> TraceVar.pp_hum ppf tv
     | `E ev -> Print.id ppf ev
 let pp_hum_arith_var_ : arith_var Print.t_with_prec =
@@ -86,6 +94,18 @@ let pp_hum_arith_ : arith Print.t_with_prec =
 let pp_hum_arith : arith Print.t =
   pp_hum_arith_ Print.Prec.zero
 
+(* TODO merge with Trans.Subst *)
+let rec subst_arith : arith ArithVarMap.t -> arith -> arith =
+  fun env a ->
+    match a with
+    | Int _ -> a
+    | Var v ->
+        begin match ArithVarMap.find env v with
+        | None -> a
+        | Some v' -> v'
+        end
+    | Op(op, as') -> Op(op, List.map ~f:(subst_arith env) as')
+
 let rec arith_to_orig : arith -> Arith.t = function
   | Var (`I x) -> Var { (TraceVar.to_orig x) with ty = `Int }
   | Var (`E x) -> Var { x with ty = `Int }
@@ -98,6 +118,14 @@ let rec arith_to_orig : arith -> Arith.t = function
 
 type formula = (Void.t, arith_var) Formula.gen_t
   [@@deriving eq,ord,show,iter,map,fold,sexp]
+
+let rec subst_formula : arith ArithVarMap.t -> formula -> formula =
+  fun env p ->
+    match p with
+    | Pred(prim, as') -> Pred(prim, List.map as' ~f:(subst_arith env))
+    | And ps -> And(List.map ~f:(subst_formula env) ps)
+    | Or  ps -> Or (List.map ~f:(subst_formula env) ps)
+    | _ -> p
 
 let pp_hum_formula_ : formula Print.t_with_prec =
   Print.gen_formula_ Print.void_ pp_hum_arith_var_
