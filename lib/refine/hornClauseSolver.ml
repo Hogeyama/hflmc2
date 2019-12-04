@@ -217,95 +217,95 @@ let solve_hccs : HornClause.t list -> solution =
       (Print.list HornClause.pp_hum) hccs
     end;
     let hccs' = ToFpat.hccs hccs in
-    let solvers =
-      let open Fpat in
-      [ "GenHCCSSolver"
-          , GenHCCSSolver.solve (CHGenInterpProver.interpolate false)
-      ; "GenHCCSSolver+Interp"
-          , GenHCCSSolver.solve (CHGenInterpProver.interpolate true)
-      ; "BwIPHCCSSolver" , BwIPHCCSSolver.solve
-      ; "Pdr"            , HCCSSolver.solve_pdr
-      (* ; "Duality"        , HCCSSolver.solve_duality *)
-      (* ; "LowerBound"     , FwHCCSSolver.solve_simp *)
-      ]
-    in
     Log.info begin fun m -> m ~header:"SaveHCCS" "%s" @@
       let tmp_file = Filename.temp_file "refine-" ".smt2" in
       Fpat.HCCS.save_smtlib2 tmp_file hccs';
       tmp_file
     end;
-    let raw_solution =
-      match
-        List.find_map solvers ~f:begin fun (name, solver) ->
-          match solver hccs' with
-          | ans -> Some ans
-          | exception e ->
-              Log.warn begin fun m -> m ~header:"Fpat"
-                "`%s` failed to solve the HCCS: %s"
-                name (Printexc.to_string e)
-              end;
-              None
+
+    let solve (raw_solver : Fpat.HCCSSolver.t) _ =
+      let map = raw_solver hccs' in
+      Log.info begin fun m -> m ~header:"FpatAnswer" "%a"
+        Fpat.PredSubst.pr map;
+      end;
+      let raw_solution =
+        StrMap.of_alist_exn @@ List.map map ~f:begin function
+        | Fpat.Idnt.V x, pred -> x, pred
+        | _ -> assert false
         end
-      with
-      | Some map ->
-          Log.info begin fun m -> m ~header:"FpatAnswer" "%a"
-            Fpat.PredSubst.pr map;
-          end;
-          StrMap.of_alist_exn @@ List.map map ~f:begin function
-          | Fpat.Idnt.V x, pred -> x, pred
-          | _ -> assert false
-          end
-      | None ->
-          Log.err (fun m -> m ~header:"Fpat" "Could not solve HCCS");
-          Fn.fatal "Failed to solve HCCS"
-    in
-    let pvs = PredVarSet.of_list @@
-      List.concat_map hccs ~f:begin fun hcc ->
-        match hcc.head with
-        | `P _ -> hcc.body.pvs
-        | `V v -> v :: hcc.body.pvs
-      end
-    in
-    PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->
-      let pv_name = match pv with
-        | PredVar (Pos, aged) -> "|"^TraceVar.string_of_aged aged^"|"
-        | PredVar (Neg, _) -> assert false
       in
-      match StrMap.find raw_solution pv_name with
-      | Some (fpat_args, fpat_pred) ->
-          let fpat_args = List.map fpat_args ~f:begin function
-             | Fpat.Idnt.V x, _ -> x
-             | _ -> assert false
-             end
-          in
-          let pv_args = args_of_pred_var pv in
-          let rename_map = StrMap.of_alist_exn @@
-            List.map2_exn fpat_args pv_args ~f:begin fun fx x ->
-              fx, x
-            end
-          in
-          let rename s = match StrMap.find rename_map s with
-            (* TODO
-             * lbで解を求めた場合，p(x,y) = x = z /\ z < y みたいな解が
-             * 返ってくる場合があって，変数を除去しないといけない *)
-            | None -> `I (TraceVar.Local { parent = TraceVar.(mk_aged ~age:0 @@
-                                                      Nt ({orig = Id.gen ~name:"foo" (TyBool())})
-                                                    )
-                                         ; name   = Id.gen ~name:s TyInt
-                                         ; fvs    = []
-                                         ; nth    = 0
-                                         })
-            | Some v -> `I v
-          in
-          let formula : HornClause.formula = (OfFpat.formula rename fpat_pred)
-          in PredVarMap.add_exn acc ~key:pv ~data:[formula]
-      | None -> assert false
-    end
+      let pvs = PredVarSet.of_list @@
+        List.concat_map hccs ~f:begin fun hcc ->
+          match hcc.head with
+          | `P _ -> hcc.body.pvs
+          | `V v -> v :: hcc.body.pvs
+        end
+      in
+      PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->
+        let pv_name = match pv with
+          | PredVar (Pos, aged) -> "|"^TraceVar.string_of_aged aged^"|"
+          | PredVar (Neg, _) -> assert false
+        in
+        match StrMap.find raw_solution pv_name with
+        | Some (fpat_args, fpat_pred) ->
+            let fpat_args = List.map fpat_args ~f:begin function
+               | Fpat.Idnt.V x, _ -> x
+               | _ -> assert false
+               end
+            in
+            let pv_args = args_of_pred_var pv in
+            let rename_map = StrMap.of_alist_exn @@
+              List.map2_exn fpat_args pv_args ~f:begin fun fx x ->
+                fx, x
+              end
+            in
+            let rename s = match StrMap.find rename_map s with
+              | None -> (* ??? *)
+                  if true then assert false;
+                  let orig   = Id.gen ~name:"foo" (TyBool()) in
+                  let parent = TraceVar.(mk_aged ~age:0 @@ Nt {orig}) in
+                  let name   = Id.gen ~name:s TyInt in
+                  let fvs    = [] in
+                  let nth    = 0 in
+                  `I (TraceVar.Local { parent; name; fvs; nth })
+              | Some v -> `I v
+            in
+            let formula : HornClause.formula = (OfFpat.formula rename fpat_pred)
+            in PredVarMap.add_exn acc ~key:pv ~data:[formula]
+        | None -> assert false
+      end
+
+    in
+    let solvers =
+      let open Fpat in
+      [ "GenHCCSSolver"
+          , solve @@ GenHCCSSolver.solve (CHGenInterpProver.interpolate false)
+      ; "GenHCCSSolver+Interp"
+          , solve @@ GenHCCSSolver.solve (CHGenInterpProver.interpolate true)
+      ; "BwIPHCCSSolver"
+          , solve @@ BwIPHCCSSolver.solve
+      ; "Pdr"
+          , solve @@ HCCSSolver.solve_pdr
+      ]
+    in
+    try
+      List.find_map_exn solvers ~f:begin fun (name, solver) ->
+        match solver hccs with
+        | ans -> Some ans
+        | exception e ->
+            Log.warn begin fun m -> m ~header:"HornClauseSolver"
+              "`%s` failed to solve the HCCS: %s"
+              name (Printexc.to_string e)
+            end;
+            None
+      end
+    with Not_found ->
+      Log.err (fun m -> m ~header:"HornClauseSolver" "Could not solve HCCS");
+      Fn.fatal "Failed to solve HCCS"
 
 let solve_hccss : HornClause.t list list -> solution = fun css ->
   let f : solution -> t list -> solution = fun current_solutions hccs ->
     let lookup = function
-      (* | PredVar (Pos, _) as pv -> PredVarMap.find current_solutions pv *)
       | PredVar (Pos, _) -> None
       | PredVar (Neg, aged) ->
           Option.map ~f:(List.map ~f:Formula.mk_not) @@
