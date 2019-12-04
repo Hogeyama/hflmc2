@@ -5,6 +5,7 @@
     cmdliner
     lwt
     lwt.unix
+    hflmc2_util
     yojson
     )
   (preprocess (pps ppx_deriving.std ppx_deriving_yojson ppx_deriving_cmdliner)))

@@ -1,5 +1,6 @@
 
 open Core
+open Hflmc2_util.Fn
 
 type [@warning "-39"] params =
   { suzuki_san : bool        [@default false]
@@ -26,26 +27,6 @@ let dune_root =
 let cases case_set =
   In_channel.(with_file (dune_root^"benchmark/lists/"^case_set) ~f:input_all)
   |> String.split_lines
-
-let run_command ?(timeout=20.0) cmd =
-  let read_fd ?(len=255) fd =
-    let buf = Bytes.make len ' ' in
-    let len = Unix.read ~buf fd in
-    Unix.close fd;
-    String.sub ~pos:0 ~len @@ Bytes.to_string buf
-  in
-  let r_fd, w_fd = Unix.pipe() in
-  let e_r_fd, e_w_fd = Unix.pipe() in
-  let process_status = Lwt_main.run @@
-    Lwt_process.exec
-      ~timeout
-      ~stdout:(`FD_move w_fd)
-      ~stderr:(`FD_move e_w_fd)
-      ("", cmd)
-  in
-  let stdout = read_fd r_fd in
-  let stderr = read_fd e_r_fd in
-  (process_status, stdout, stderr)
 
 let command params file =
   Array.of_list @@ List.concat @@
