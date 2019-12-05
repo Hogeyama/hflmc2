@@ -253,6 +253,25 @@ let rec abstract_coerce
                  let qs' = List.(map ~f:(Array.get qs) _I) in
                  _I = [] || not (FpatInterface.is_valid (Formula.mk_ands (guard::qs')))
                end
+            |> begin (* q1=>q2のとき Q={q1,q2} を考える必要はない({q1}だけ考えれば良い) *)
+                let implies =
+                  List.powerset ~limit:2 one_to_l (* 3にする意味は薄そう *)
+                  |> List.filter ~f:begin function
+                     | [i1;i2] ->
+                        let q1 = Array.get qs i1 in
+                        let q2 = Array.get qs i2 in
+                        FpatInterface.(q1 ==> q2) ||
+                        FpatInterface.(q2 ==> q1)
+                     | _ -> false
+                     end
+                in
+                List.filter ~f:begin fun _I ->
+                  List.for_all implies ~f:begin
+                    (* 全部入ってたら無駄 *)
+                    List.exists ~f:(Fn.non (List.mem ~equal:Int.equal _I))
+                  end
+                end
+              end
           in
           let phi's =
             let _IJs =
