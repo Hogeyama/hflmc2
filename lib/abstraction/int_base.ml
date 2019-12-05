@@ -275,34 +275,29 @@ let rec abstract_coerce
           in
           let phi's =
             let _IJs =
-              List.map _Is ~f:begin fun _I ->
+              List.filter_map _Is ~f:begin fun _I ->
                 let qs' = List.map ~f:(Array.get qs) _I in
                 let _Q  = Formula.mk_ands (guard::qs') in
-                (* Q => \/i(/\Ji) を満たす極大の J1,...,Jh を得る *)
-                let _Js =
-                  if FpatInterface.is_unsat _Q
-                  then None
-                  else Some (FpatInterface.strongest_post_cond _Q ps)
-                in
-                Log.debug begin fun m ->
-                  let x = Formula.mk_ors @@
-                    match _Js with
-                    | None -> []
-                    | Some _Js ->
-                        List.map _Js ~f:begin fun _J ->
-                          Formula.mk_ands @@ List.map _J ~f:(Array.get ps)
-                        end
-                  in
-                  m ~header:"CoerceAtom" "@[<v>%a ===> %a@]"
-                    Print.formula _Q
-                    Print.formula x
-                end;
-                (_I, _Js)
+                if FpatInterface.is_unsat _Q then None else begin
+                  (* Q => \/i(/\Ji) を満たす極大の J1,...,Jh を得る *)
+                  let _Js = FpatInterface.strongest_post_cond _Q ps in
+                  Log.info begin fun m ->
+                    let x = Formula.mk_ors @@
+                      List.map _Js ~f:begin fun _J ->
+                        Formula.mk_ands @@ List.map _J ~f:(Array.get ps)
+                      end
+                    in
+                    m ~header:"CoerceAtom" "@[%a ===>@;<1 2>%a@]"
+                      Print.formula _Q
+                      Print.formula x
+                  end;
+                  Some (_I, _Js)
+                end
               end
             in
             let _IJs = _IJs
               (* Group by equality of Js *)
-              |> List.sort ~compare:Fn.(on snd [%compare : Int.t List.t List.t Option.t])
+              |> List.sort ~compare:Fn.(on snd [%compare : Int.t List.t List.t])
               |> List.group ~break:Fn.(on snd (<>))
               (* Remove I which has its subset in the same group *)
               |> List.concat_map ~f:(List.maximals' Fn.(on fst (flip List.subset)))
@@ -322,7 +317,7 @@ let rec abstract_coerce
               in
               Hfl.mk_ands ~kind:`Inserted
                @@ List.map _I ~f:mk_var
-                @ Option.value_map _Js ~default:[] ~f:(List.map ~f:mk_atom)
+                @ List.map ~f:mk_atom _Js
             end
           in Hfl.mk_ors ~kind:`Inserted phi's
       | TyArrow({ty=TyInt preds ;_} as x , sigma )
