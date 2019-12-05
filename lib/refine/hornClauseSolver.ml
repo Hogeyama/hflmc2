@@ -230,6 +230,11 @@ module Hoice = struct
           | n -> Arith.mk_int n
           | exception _ -> Arith.mk_var' (mk_var s)
           end
+      | List [Atom "-"; s] ->
+          begin match parse_arith s with
+          | Int n -> Int (-n)
+          | a -> Arith.mk_op Sub [Arith.mk_int 0; a]
+          end
       | List (Atom op :: ss) ->
           let op = match op with
             | "+" -> Arith.Add
@@ -246,25 +251,23 @@ module Hoice = struct
     let rec parse_formula = function
       | Atom "true"  -> Formula.Bool true
       | Atom "false" -> Formula.Bool false
-      | List (Atom a :: ss) ->
-          let a = match a with
-            | "="   -> `Pred Formula.Eq
-            | "!="  -> `Pred Formula.Neq
-            | "<="  -> `Pred Formula.Le
-            | ">="  -> `Pred Formula.Ge
-            | "<"   -> `Pred Formula.Lt
-            | ">"   -> `Pred Formula.Gt
-            | "and" -> `Con Formula.mk_and
-            | "or"  -> `Con Formula.mk_or
-            | s     -> fail "parse_formula:list" (Atom s)
+      | List [Atom "not"; s] ->
+          Formula.mk_not (parse_formula s)
+      | List (Atom "and":: ss) ->
+          Formula.mk_ands (List.map ss ~f:parse_formula)
+      | List (Atom "or":: ss) ->
+          Formula.mk_ors (List.map ss ~f:parse_formula)
+      | List [Atom pred; s1; s2] ->
+          let pred = match pred with
+            | "="  -> Formula.Eq
+            | "!=" -> Formula.Neq
+            | "<=" -> Formula.Le
+            | ">=" -> Formula.Ge
+            | "<"  -> Formula.Lt
+            | ">"  -> Formula.Gt
+            | s    -> fail "parse_formula:list" (Atom s)
           in
-          begin match a with
-          | `Pred pred ->
-              Formula.mk_pred pred (List.map ~f:parse_arith ss)
-          | `Con make ->
-              let [@warning "-8"] a::as' = List.map ss ~f:parse_formula in
-              List.fold_left ~init:a as' ~f:make
-          end
+          Formula.mk_pred pred [parse_arith s1; parse_arith s2]
       | s -> fail "parse_formula" s
     in
     let parse_def = function
@@ -335,7 +338,7 @@ module Hoice = struct
           end;
           let defs = StrMap.of_alist_exn defs in
           PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->
-            let pv_name = match pv with
+            let pv_name = match reset_pv pv with
               | PredVar (Pos, aged) -> "|"^TraceVar.string_of_aged aged^"|"
               | PredVar (Neg, _) -> assert false
             in
@@ -348,7 +351,7 @@ module Hoice = struct
                     end
                   in
                   HornClause.subst_formula subst body
-              | _ -> assert false (* TODO fixpoint_nontermで踏んだ *)
+              | _ -> assert false
             in PredVarMap.add_exn acc ~key:pv ~data:[formula]
           end
       | _ -> assert false
