@@ -13,14 +13,15 @@ end
 
 module Abstraction = struct
   (* NOTE Actual value is set by Cmdliner *)
-  let max_I                = ref (Obj.magic())
-  let max_ands             = ref (Obj.magic())
-  let modify_pred_by_guard = ref (Obj.magic())
+  let max_I                = ref (Obj.magic() : int)
+  let max_ands             = ref (Obj.magic() : int)
+  let modify_pred_by_guard = ref (Obj.magic() : bool)
 end
 
 module Refine = struct
   (* NOTE Actual value is set by Cmdliner *)
-  let use_legacy           = ref (Obj.magic())
+  let use_legacy           = ref (Obj.magic() : bool)
+  let use_hoice            = ref (Obj.magic() : bool)
 end
 
 (******************************************************************************)
@@ -72,6 +73,8 @@ type params =
   (* Refine *)
   ; refine_legacy : bool [@default false] [@docs "Refine"]
     (** Use old refine algorithm *)
+  ; refine_hoice : bool [@default false] [@docs "Refine"]
+    (** Use hoice as CHC solver *)
 
   }
   [@@deriving cmdliner,show]
@@ -85,6 +88,7 @@ let set_up_params params =
   set_ref Abstraction.max_ands             params.abst_max_ands;
   set_ref Abstraction.modify_pred_by_guard (not params.abst_no_modify_pred_by_guard);
   set_ref Refine.use_legacy                params.refine_legacy;
+  set_ref Refine.use_hoice                 params.refine_hoice;
   params.input
 
 (******************************************************************************)

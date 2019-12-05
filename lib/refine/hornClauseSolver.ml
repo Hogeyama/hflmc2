@@ -314,12 +314,18 @@ module Hoice = struct
           HornClause.{ head; body }
         end
       in
+      Log.warn begin fun m -> m ~header:"nonrec_hccs" "@[<v>%a@]"
+        (Print.list HornClause.pp_hum) hccs
+      end;
       Log.warn begin fun m -> m ~header:"rec_hccs" "@[<v>%a@]"
         (Print.list HornClause.pp_hum) rec_hccs
       end;
       let file = "/tmp/hoice.smt2" in
       Fpat.HCCS.save_smtlib2 file (ToFpat.hccs rec_hccs);
       let _, out, _ = Fn.run_command ~timeout:20.0 [|"hoice"; file|] in
+      Log.warn begin fun m -> m ~header:"HoiceOutput" "%s"
+        out
+      end;
       match String.lsplit2 out ~on:'\n' with
       | Some ("unsat", _) -> raise (Invalid_argument "NoSolution")
       | Some ("sat", model) ->
@@ -424,7 +430,7 @@ let solve_hccs : HornClause.t list -> solution =
     in
     let solvers =
       let open Fpat in
-      List.tl_exn
+      (if !Hflmc2_options.Refine.use_hoice then Fn.id else List.tl_exn)
       [ "Hoice"
           , Hoice.solve
       ; "GenHCCSSolver"
