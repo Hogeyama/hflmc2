@@ -19,6 +19,10 @@ let list_set : 'a Fmt.t -> 'a list Fmt.t =
   fun format_x ppf xs ->
     let sep ppf () = Fmt.pf ppf ",@," in
     Fmt.pf ppf "{@[%a@]}" Fmt.(list ~sep format_x) xs
+let list_ketsucomma : 'a Fmt.t -> 'a list Fmt.t =
+  fun format_x ppf xs ->
+    let sep = fun ppf () -> pf ppf "@,, " in
+    pf ppf "[ @[<hv -2>%a@] ]" (list ~sep format_x) xs
 
 module Prec = struct
   type t = int
@@ -222,19 +226,17 @@ let fixpoint : Fixpoint.t Fmt.t =
 
 let rec hfl_ prec ppf (phi : Hfl.t) = match phi with
   | Bool true ->
-      Fmt.string ppf "true"
+      Fmt.string ppf "true_"
   | Bool false ->
       Fmt.string ppf "false"
   | Var x ->
       id ppf x
   | Or (phis, `Inserted) ->
-      let sep ppf () = Fmt.pf ppf "@ ||' " in
-      show_paren (prec > Prec.or_) ppf "@[<hv 0>%a@]"
-        (list ~sep (hfl_ Prec.or_)) phis
+      pf ppf "or %a"
+        (list_ketsucomma (hfl_ Prec.zero)) phis
   | And (phis, `Inserted) ->
-      let sep ppf () = Fmt.pf ppf "@ &&' " in
-      show_paren (prec > Prec.and_) ppf "@[<hv 0>%a@]"
-        (list ~sep (hfl_ Prec.and_)) phis
+      pf ppf "and %a"
+        (list_ketsucomma (hfl_ Prec.zero)) phis
   | Or (phis, `Original) ->
       let sep ppf () = Fmt.pf ppf "@ || " in
       show_paren (prec > Prec.or_) ppf "@[<hv 0>%a@]"
