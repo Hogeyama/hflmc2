@@ -295,35 +295,76 @@ let rec abstract_coerce
                 end
               end
             in
-            let _IJs = _IJs
-              (* Group by equality of Js *)
-              |> List.sort ~compare:Fn.(on snd [%compare : Int.t List.t List.t])
-              |> List.group ~break:Fn.(on snd (<>))
-              (* Remove I which has its subset in the same group *)
-              |> List.concat_map ~f:(List.maximals' Fn.(on fst (flip List.subset)))
-            in
-            List.map _IJs ~f:begin fun (_I,_Js) ->
-              let cond =
-                let mk_var i = Hfl.mk_var (name_of @@ Array.get qs i) in
-                Hfl.mk_ands ~kind:`Inserted @@ List.map _I ~f:mk_var
+            if false then begin
+              (* b1 &&' k true ||' b2 &&' k true ~~> (b1 ||' b2) &&' k true *)
+              let _IsJs = _IJs
+                (* Group by equality of Js *)
+                |> List.sort ~compare:Fn.(on snd [%compare : Int.t List.t List.t])
+                |> List.group ~break:Fn.(on snd (<>))
+                (* Merge *)
+                |> List.map ~f:begin fun g ->
+                     let _Js = snd @@ List.hd_exn g in
+                     let _Is = List.map ~f:fst g
+                       (* Remove I which has its subset in the same group *)
+                       |> List.maximals' Fn.(flip List.subset)
+                     in
+                     (_Is, _Js)
+                   end
               in
-              let require =
-                let mk_atom _J =
-                  let subst =
-                    List.map one_to_k ~f:begin fun j ->
-                      name_of (Array.get ps j),
-                      Hfl.Bool (List.mem ~equal:Int.equal _J j)
-                    end @
-                    List.map _I ~f:begin fun i ->
-                      name_of (Array.get qs i),
-                      Hfl.Bool true
+              List.map _IsJs ~f:begin fun (_Is,_Js) ->
+                let cond =
+                  let mk_var i = Hfl.mk_var (name_of @@ Array.get qs i) in
+                  Hfl.mk_ors ~kind:`Inserted @@
+                    List.map _Is ~f:begin fun _I ->
+                      Hfl.mk_ands ~kind:`Inserted @@
+                        List.map _I ~f:mk_var
                     end
-                  in
-                  Trans.Subst.Hfl.hfl (IdMap.of_list subst) phi
                 in
-                Hfl.mk_ands ~kind:`Inserted @@ List.map ~f:mk_atom _Js
+                let require =
+                  let mk_atom _J =
+                    let subst =
+                      List.map one_to_k ~f:begin fun j ->
+                        name_of (Array.get ps j),
+                        Hfl.Bool (List.mem ~equal:Int.equal _J j)
+                      end
+                    in
+                    Trans.Subst.Hfl.hfl (IdMap.of_list subst) phi
+                  in
+                  Hfl.mk_ands ~kind:`Inserted @@ List.map ~f:mk_atom _Js
+                in
+                Hfl.mk_ands ~kind:`Inserted [cond; require]
+              end
+            end else begin
+              let _IJs = _IJs
+                (* Group by equality of Js *)
+                |> List.sort ~compare:Fn.(on snd [%compare : Int.t List.t List.t])
+                |> List.group ~break:Fn.(on snd (<>))
+                (* Remove I which has its subset in the same group *)
+                |> List.concat_map ~f:(List.maximals' Fn.(on fst (flip List.subset)))
               in
-              Hfl.mk_ands ~kind:`Inserted [cond; require]
+              List.map _IJs ~f:begin fun (_I,_Js) ->
+                let cond =
+                  let mk_var i = Hfl.mk_var (name_of @@ Array.get qs i) in
+                  Hfl.mk_ands ~kind:`Inserted @@ List.map _I ~f:mk_var
+                in
+                let require =
+                  let mk_atom _J =
+                    let subst =
+                      List.map one_to_k ~f:begin fun j ->
+                        name_of (Array.get ps j),
+                        Hfl.Bool (List.mem ~equal:Int.equal _J j)
+                      end @
+                      List.map _I ~f:begin fun i ->
+                        name_of (Array.get qs i),
+                        Hfl.Bool true
+                      end
+                    in
+                    Trans.Subst.Hfl.hfl (IdMap.of_list subst) phi
+                  in
+                  Hfl.mk_ands ~kind:`Inserted @@ List.map ~f:mk_atom _Js
+                in
+                Hfl.mk_ands ~kind:`Inserted [cond; require]
+              end
             end
           in Hfl.mk_ors ~kind:`Inserted phi's
       | TyArrow({ty=TyInt preds ;_} as x , sigma )
