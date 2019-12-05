@@ -303,21 +303,27 @@ let rec abstract_coerce
               |> List.concat_map ~f:(List.maximals' Fn.(on fst (flip List.subset)))
             in
             List.map _IJs ~f:begin fun (_I,_Js) ->
-              let mk_var i =
-                Hfl.mk_var (name_of @@ Array.get qs i)
+              let cond =
+                let mk_var i = Hfl.mk_var (name_of @@ Array.get qs i) in
+                Hfl.mk_ands ~kind:`Inserted @@ List.map _I ~f:mk_var
               in
-              let mk_atom _J =
-                let subst =
-                  List.map one_to_k ~f:begin fun j ->
-                    name_of (Array.get ps j),
-                    Hfl.Bool (List.mem ~equal:Int.equal _J j)
-                  end
+              let require =
+                let mk_atom _J =
+                  let subst =
+                    List.map one_to_k ~f:begin fun j ->
+                      name_of (Array.get ps j),
+                      Hfl.Bool (List.mem ~equal:Int.equal _J j)
+                    end @
+                    List.map _I ~f:begin fun i ->
+                      name_of (Array.get qs i),
+                      Hfl.Bool true
+                    end
+                  in
+                  Trans.Subst.Hfl.hfl (IdMap.of_list subst) phi
                 in
-                Trans.Subst.Hfl.hfl (IdMap.of_list subst) phi
+                Hfl.mk_ands ~kind:`Inserted @@ List.map ~f:mk_atom _Js
               in
-              Hfl.mk_ands ~kind:`Inserted
-               @@ List.map _I ~f:mk_var
-                @ List.map ~f:mk_atom _Js
+              Hfl.mk_ands ~kind:`Inserted [cond; require]
             end
           in Hfl.mk_ors ~kind:`Inserted phi's
       | TyArrow({ty=TyInt preds ;_} as x , sigma )
