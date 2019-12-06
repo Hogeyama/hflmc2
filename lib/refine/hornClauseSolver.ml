@@ -282,7 +282,7 @@ module Hoice = struct
         List.map ~f:parse_def sol
     | s -> fail "parse_model" s
 
-  let solve : HornClause.t list -> solution =
+  let solve_merge : HornClause.t list -> solution =
     fun hccs ->
       let pvs = PredVarSet.of_list @@
         List.concat_map hccs ~f:begin fun hcc ->
@@ -361,6 +361,128 @@ module Hoice = struct
             in PredVarMap.add_exn acc ~key:pv ~data:[formula]
           end
       | _ -> assert false
+
+  let solve_hack : HornClause.t list -> solution =
+    fun hccs ->
+      let pvs = PredVarSet.of_list @@
+        List.concat_map hccs ~f:begin fun hcc ->
+          match hcc.head with
+          | `P _ -> hcc.body.pvs
+          | `V v -> v :: hcc.body.pvs
+        end
+      in
+      (* convert to recursive HCCS *)
+      let rec_hccs = hccs @
+        List.map (PredVarSet.to_list pvs) ~f:begin fun pv ->
+          let head = `V pv in
+          let body = { pvs = [pv] ; phi = [] } in
+          { head; body }
+        end
+      in
+      Log.warn begin fun m -> m ~header:"nonrec_hccs" "@[<v>%a@]"
+        (Print.list HornClause.pp_hum) hccs
+      end;
+      Log.warn begin fun m -> m ~header:"rec_hccs" "@[<v>%a@]"
+        (Print.list HornClause.pp_hum) rec_hccs
+      end;
+      let file = "/tmp/hoice.smt2" in
+      Fpat.HCCS.save_smtlib2 file (ToFpat.hccs rec_hccs);
+      let _, out, _ = Fn.run_command ~timeout:20.0 [|"hoice"; file|] in
+      Log.warn begin fun m -> m ~header:"HoiceOutput" "%s"
+        out
+      end;
+      match String.lsplit2 out ~on:'\n' with
+      | Some ("unsat", _) -> raise (Invalid_argument "NoSolution")
+      | Some ("sat", model) ->
+          let defs = match Sexplib.Sexp.parse model with
+            | Done (sexp, _) -> parse_model sexp
+            | _ -> assert false
+          in
+          Log.warn begin fun m ->
+            let pp ppf (f, (args, body)) =
+              Print.pf ppf "%s(@[<h>%a@]) = %a"
+                f
+                Print.(list TraceVar.pp_hum) (List.map args ~f:(fun (`I x) -> x))
+                HornClause.pp_hum_formula body
+            in
+            m "@[<v>%a@]" ~header:"HoiceAnswer" (Print.list pp) defs
+          end;
+          let defs = StrMap.of_alist_exn defs in
+          PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->
+            let pv_name = match pv with
+              | PredVar (Pos, aged) -> "|"^TraceVar.string_of_aged aged^"|"
+              | PredVar (Neg, _) -> assert false
+            in
+            let pv_args = args_of_pred_var pv in
+            let formula = match StrMap.find defs pv_name with
+              | Some (args, body) ->
+                  let subst = HornClause.ArithVarMap.of_alist_exn @@
+                    List.map2_exn args pv_args ~f:begin fun arg pv_arg ->
+                      arg, Arith.mk_var' (`I pv_arg)
+                    end
+                  in
+                  HornClause.subst_formula subst body
+              | _ -> assert false
+            in PredVarMap.add_exn acc ~key:pv ~data:[formula]
+          end
+      | _ -> assert false
+
+  let solve_modify_by_hand : HornClause.t list -> solution =
+    fun hccs ->
+      let pvs = PredVarSet.of_list @@
+        List.concat_map hccs ~f:begin fun hcc ->
+          match hcc.head with
+          | `P _ -> hcc.body.pvs
+          | `V v -> v :: hcc.body.pvs
+        end
+      in
+      Log.warn begin fun m -> m ~header:"HCCS" "@[<v>%a@]"
+        (Print.list HornClause.pp_hum) hccs
+      end;
+      let file = "/tmp/hoice.smt2" in
+      Fpat.HCCS.save_smtlib2 file (ToFpat.hccs hccs);
+      print_string "Modify /tmp/hoice.smt2 and press any key: ";
+      flush stdout;
+      let _ = input_char stdin in
+      let _, out, _ = Fn.run_command ~timeout:20.0 [|"hoice"; file|] in
+      Log.warn begin fun m -> m ~header:"HoiceOutput" "%s"
+        out
+      end;
+      match String.lsplit2 out ~on:'\n' with
+      | Some ("unsat", _) -> raise (Invalid_argument "NoSolution")
+      | Some ("sat", model) ->
+          let defs = match Sexplib.Sexp.parse model with
+            | Done (sexp, _) -> parse_model sexp
+            | _ -> assert false
+          in
+          Log.warn begin fun m ->
+            let pp ppf (f, (args, body)) =
+              Print.pf ppf "%s(@[<h>%a@]) = %a"
+                f
+                Print.(list TraceVar.pp_hum) (List.map args ~f:(fun (`I x) -> x))
+                HornClause.pp_hum_formula body
+            in
+            m "@[<v>%a@]" ~header:"HoiceAnswer" (Print.list pp) defs
+          end;
+          let defs = StrMap.of_alist_exn defs in
+          PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->
+            let pv_name = match pv with
+              | PredVar (Pos, aged) -> "|"^TraceVar.string_of_aged aged^"|"
+              | PredVar (Neg, _) -> assert false
+            in
+            let pv_args = args_of_pred_var pv in
+            let formula = match StrMap.find defs pv_name with
+              | Some (args, body) ->
+                  let subst = HornClause.ArithVarMap.of_alist_exn @@
+                    List.map2_exn args pv_args ~f:begin fun arg pv_arg ->
+                      arg, Arith.mk_var' (`I pv_arg)
+                    end
+                  in
+                  HornClause.subst_formula subst body
+              | _ -> assert false (* TODO fixpoint_nontermで踏んだ *)
+            in PredVarMap.add_exn acc ~key:pv ~data:[formula]
+          end
+      | _ -> assert false
 end
 
 let solve_hccs : HornClause.t list -> solution =
@@ -432,7 +554,7 @@ let solve_hccs : HornClause.t list -> solution =
       let open Fpat in
       (if !Hflmc2_options.Refine.use_hoice then Fn.id else List.tl_exn)
       [ "Hoice"
-          , Hoice.solve
+          , Hoice.solve_hack
       ; "GenHCCSSolver"
           , solve @@ GenHCCSSolver.solve (CHGenInterpProver.interpolate false)
       ; "GenHCCSSolver+Interp"
