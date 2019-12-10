@@ -22,11 +22,11 @@ let pp_env : env Print.t =
   fun ppf env ->
     let compare_id (x,_) (y,_) = Int.compare x.Id.id y.Id.id in
     let item ppf (f,aty) =
-      Print.pf ppf "@[<h>%a : %a@]" Print.id f Print.abstraction_ty aty
+      Print.(pf ppf "@[<h>%a : %a@]" id f abstraction_ty aty)
     in
-    Print.pf ppf "@[<v>%a@]"
-      (Print.list item)
-      (List.sort ~compare:compare_id @@ IdMap.to_alist env)
+    Print.(pf ppf "@[<v>%a.@]"
+      (list ~sep:(fun ppf () -> pf ppf ".@,") item)
+      (List.sort ~compare:compare_id @@ IdMap.to_alist env))
 
 let merge_types tys =
   let append_preds ps qs =

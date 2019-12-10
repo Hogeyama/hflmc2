@@ -337,10 +337,10 @@ module Hoice = struct
             let pp ppf (f, (args, body)) =
               Print.pf ppf "%s(@[<h>%a@]) = %a"
                 f
-                Print.(list TraceVar.pp_hum) (List.map args ~f:(fun (`I x) -> x))
+                Print.(list ~sep:comma TraceVar.pp_hum) (List.map args ~f:(fun (`I x) -> x))
                 HornClause.pp_hum_formula body
             in
-            m "@[<v>%a@]" ~header:"HoiceAnswer" (Print.list pp) defs
+            m "@[<v>%a@]" ~header:"HoiceAnswer" Print.(list pp) defs
           end;
           let defs = StrMap.of_alist_exn defs in
           PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->
@@ -402,10 +402,10 @@ module Hoice = struct
             let pp ppf (f, (args, body)) =
               Print.pf ppf "%s(@[<h>%a@]) = %a"
                 f
-                Print.(list TraceVar.pp_hum) (List.map args ~f:(fun (`I x) -> x))
+                Print.(list ~sep:comma TraceVar.pp_hum) (List.map args ~f:(fun (`I x) -> x))
                 HornClause.pp_hum_formula body
             in
-            m "@[<v>%a@]" ~header:"HoiceAnswer" (Print.list pp) defs
+            m "@[<v>%a@]" ~header:"HoiceAnswer" Print.(list pp) defs
           end;
           let defs = StrMap.of_alist_exn defs in
           PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->
@@ -459,10 +459,10 @@ module Hoice = struct
             let pp ppf (f, (args, body)) =
               Print.pf ppf "%s(@[<h>%a@]) = %a"
                 f
-                Print.(list TraceVar.pp_hum) (List.map args ~f:(fun (`I x) -> x))
+                Print.(list ~sep:comma TraceVar.pp_hum) (List.map args ~f:(fun (`I x) -> x))
                 HornClause.pp_hum_formula body
             in
-            m "@[<v>%a@]" ~header:"HoiceAnswer" (Print.list pp) defs
+            m "@[<v>%a@]" ~header:"HoiceAnswer" Print.(list pp) defs
           end;
           let defs = StrMap.of_alist_exn defs in
           PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->

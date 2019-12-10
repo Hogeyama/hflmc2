@@ -233,7 +233,7 @@ let rec abstract_coerce
           let k = Array.length ps in
           let one_to_l = List.range 0 l in (* to be honest, 0 to l-1 *)
           let one_to_k = List.range 0 k in
-          Log.info begin fun m -> m ~header:"Coerce" "%d ~> %d"
+          Log.info begin fun m -> m ~header:"Coerce:Size" "%d ~> %d"
             (Array.length ps) (Array.length qs)
           end;
           Log.debug begin fun m -> m ~header:"Coerce" "%a ~> %a"
