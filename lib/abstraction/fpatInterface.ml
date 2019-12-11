@@ -305,11 +305,12 @@ let strongest_post_cond' : Formula.t -> Formula.t array -> bformula list =
           (Formula.mk_not phi)
           (Array.map preds ~f:Formula.mk_not)
 
-let to_index_repr : bformula -> int list list =
-  fun phi ->
+(* returns in DNF *)
+let to_index_repr : polality:[`Pos|`Neg] -> bformula -> int list list =
+  fun ~polality phi ->
     List.map (Formula.to_DNF phi) ~f:begin
       List.map ~f:begin function
-        | Formula.Var (x, `Neg) ->
+        | Formula.Var (x, p) when p = polality ->
             int_of_string @@ String.lstrip ~drop:(fun c -> c='x') x
         | _ -> assert false
       end
@@ -323,8 +324,13 @@ let strongest_post_cond : Formula.t -> Formula.t array -> int list list =
     Log.debug begin fun m -> m ~header:"strongest_post_cond" "%a"
       Print.(list pp_bformula) bs
     end;
-    to_index_repr @@ Formula.mk_ands bs
+    to_index_repr ~polality:`Neg @@ Formula.mk_ands bs
 
-let min_valid_cores : Formula.t array -> int list list =
-  strongest_post_cond (Bool true)
+let weakest_pre_cond : Formula.t -> Formula.t array -> int list list =
+  fun phi preds ->
+    let bs = weakest_pre_cond' phi preds in
+    Log.debug begin fun m -> m ~header:"strongest_post_cond" "%a"
+      Print.(list pp_bformula) bs
+    end;
+    to_index_repr ~polality:`Pos @@ Formula.mk_ors bs
 

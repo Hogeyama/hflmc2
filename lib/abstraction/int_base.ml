@@ -32,9 +32,8 @@ module IType = struct
                   , merge append rty1 rty2 )
       | TyArrow ({ty=TySigma aty1;_} as x1, rty1)
       , TyArrow ({ty=TySigma aty2;_} as x2, rty2) when Id.eq x1 x2 ->
-          TyArrow
-            ( {x1 with ty = TySigma (merge append aty1 aty2)}
-            , merge append rty1 rty2 )
+          TyArrow ( {x1 with ty = TySigma (merge append aty1 aty2)}
+                  , merge append rty1 rty2 )
       | _ -> invalid_arg "Type.merge"
   let merges = fun append tys ->
     match tys with

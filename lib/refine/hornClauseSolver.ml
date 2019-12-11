@@ -329,7 +329,7 @@ module Hoice = struct
       match String.lsplit2 out ~on:'\n' with
       | Some ("unsat", _) -> raise (Invalid_argument "NoSolution")
       | Some ("sat", model) ->
-          let defs = match Sexplib.Sexp.parse model with
+          let model = match Sexplib.Sexp.parse model with
             | Done (sexp, _) -> parse_model sexp
             | _ -> assert false
           in
@@ -340,16 +340,16 @@ module Hoice = struct
                 Print.(list ~sep:comma TraceVar.pp_hum) (List.map args ~f:(fun (`I x) -> x))
                 HornClause.pp_hum_formula body
             in
-            m "@[<v>%a@]" ~header:"HoiceAnswer" Print.(list pp) defs
+            m "@[<v>%a@]" ~header:"HoiceAnswer" Print.(list pp) model
           end;
-          let defs = StrMap.of_alist_exn defs in
+          let model = StrMap.of_alist_exn model in
           PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->
             let pv_name = match reset_pv pv with
               | PredVar (Pos, aged) -> "|"^TraceVar.string_of_aged aged^"|"
               | PredVar (Neg, _) -> assert false
             in
             let pv_args = args_of_pred_var pv in
-            let formula = match StrMap.find defs pv_name with
+            let formula = match StrMap.find model pv_name with
               | Some (args, body) ->
                   let subst = HornClause.ArithVarMap.of_alist_exn @@
                     List.map2_exn args pv_args ~f:begin fun arg pv_arg ->
@@ -383,7 +383,7 @@ module Hoice = struct
       match String.lsplit2 out ~on:'\n' with
       | Some ("unsat", _) -> raise (Invalid_argument "NoSolution")
       | Some ("sat", model) ->
-          let defs = match Sexplib.Sexp.parse model with
+          let model = match Sexplib.Sexp.parse model with
             | Done (sexp, _) -> parse_model sexp
             | _ -> assert false
           in
@@ -394,16 +394,16 @@ module Hoice = struct
                 Print.(list ~sep:comma TraceVar.pp_hum) (List.map args ~f:(fun (`I x) -> x))
                 HornClause.pp_hum_formula body
             in
-            m "@[<v>%a@]" ~header:"HoiceAnswer" Print.(list pp) defs
+            m "@[<v>%a@]" ~header:"HoiceAnswer" Print.(list pp) model
           end;
-          let defs = StrMap.of_alist_exn defs in
+          let model = StrMap.of_alist_exn model in
           PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->
             let pv_name = match pv with
               | PredVar (Pos, aged) -> "|"^TraceVar.string_of_aged aged^"|"
               | PredVar (Neg, _) -> assert false
             in
             let pv_args = args_of_pred_var pv in
-            let formula = match StrMap.find defs pv_name with
+            let formula = match StrMap.find model pv_name with
               | Some (args, body) ->
                   let subst = HornClause.ArithVarMap.of_alist_exn @@
                     List.map2_exn args pv_args ~f:begin fun arg pv_arg ->
