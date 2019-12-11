@@ -644,3 +644,40 @@ let abstract
     Log.info begin fun m -> m ~header:"IntEnv" "%a" pp_gamma gamma end;
     List.map ~f:(abstract_rule gamma) hes
 
+(* XXX ad-hoc *)
+module Alpha = struct
+  (* 同じ名前のidは同じ述語に対応している
+   * λb1.λb1.F b1
+   * は
+   * λb2.λb3.F (b2∨ b3)
+   * に書き換えてよい
+   * *)
+  type map = Type.abstracted_ty Id.t list IdMap.t
+  let add x x' map =
+    IdMap.update map (Id.remove_ty x) ~f:begin function
+    | None -> [x']
+    | Some xs -> x'::xs
+    end
+  let rec term : map -> Hfl.t -> Hfl.t =
+    fun map phi -> match phi with
+    | Var ({ty=ATyBool;_} as x) ->
+        Hfl.mk_ors ~kind:`Inserted
+          @@ List.map ~f:Hfl.mk_var
+          @@ Option.value ~default:[x] (* 一応NTの可能性はある *)
+          @@ IdMap.find map x
+    | Abs ({ty=ATyBool;_} as x, phi) ->
+        let x' = Id.gen ~name:"b" Type.ATyBool in
+        let map = add x x' map in
+        Abs (x', term map phi)
+    | Var  x           -> Var x
+    | Abs  (x,phi)     -> Abs (x, term map phi)
+    | Bool b           -> Bool b
+    | Or   (phis, k)   -> Or  (List.map ~f:(term map) phis, k)
+    | And  (phis, k)   -> And (List.map ~f:(term map) phis, k)
+    | App  (phi1,phi2) -> App (term map phi1, term map phi2)
+  let hes_rule rule = Hfl.{ rule with body = term IdMap.empty rule.body }
+  let hes = List.map ~f:hes_rule
+end
+
+let abstract gamma hes = abstract gamma hes |> Alpha.hes
+
