@@ -48,10 +48,57 @@ let report_times () =
         in Print.pr "%s %f sec@." s v
       end
 
-let rec cegar_loop prev_cexs loop_count psi gamma =
-  Log.app begin fun m -> m ~header:"TopOfLoop" "Loop count: %d"
-      loop_count
+type config =
+  { retry            : int
+  ; refine_hoice     : bool
+  ; abst_optimize_or : bool
+  ; abst_cartesian   : bool
+  ; abst_max_ands    : int
+  (* ; abst_max_I       : int *)
+  }
+let orig_config : config ref = ref (Obj.magic())
+let read_orig_config () =
+  orig_config :=
+    { retry            = 0
+    ; refine_hoice     = !Options.Refine.use_hoice
+    ; abst_cartesian   = !Options.Abstraction.cartesian
+    ; abst_max_ands    = !Options.Abstraction.max_ands
+    ; abst_optimize_or = true
+    }
+let set_config c =
+  Log.app begin fun m -> m ~header:"set_config"
+    ("@[<v>"
+    ^^"refine_hoice     : %b@,"
+    ^^"abst_cartesian   : %b@,"
+    ^^"abst_optimize_or : %b@,"
+    ^^"abst_max_ands    : %d"
+    ^^"@]")
+    c.refine_hoice
+    c.abst_cartesian
+    c.abst_optimize_or
+    c.abst_max_ands
   end;
+  Options.Refine.use_hoice        := c.refine_hoice;
+  Options.Abstraction.cartesian   := c.abst_cartesian;
+  Options.Abstraction.max_ands    := c.abst_max_ands;
+  Options.Abstraction.optimize_or := c.abst_optimize_or;
+  ()
+let update_config c = match () with
+  | _ when c.abst_max_ands=1  -> Some { c with retry = c.retry+1; abst_max_ands=2        }
+  | _ when c.abst_cartesian   -> Some { c with retry = c.retry+1; abst_cartesian=false   }
+  | _ when c.refine_hoice     -> Some { c with retry = c.retry+1; refine_hoice=false     }
+  | _ when c.abst_optimize_or -> Some { c with retry = c.retry+1; abst_optimize_or=false }
+  | _ when c.abst_max_ands=2  -> Some { c with retry = c.retry+1; abst_max_ands=3        }
+  | _ -> None
+
+exception NoProgress
+
+let rec cegar_loop (config : config) prev_cexs loop_count psi gamma =
+  Log.app begin fun m -> m ~header:"TopOfLoop" "@[<v>Loop count: %d%s@]"
+      loop_count
+      (if config.retry=0 then "" else " (retry "^string_of_int config.retry^")")
+  end;
+  set_config config;
   Log.app begin fun m -> m ~header:"Environmet" "%a"
     Abstraction.pp_env gamma
   end;
@@ -74,59 +121,49 @@ let rec cegar_loop prev_cexs loop_count psi gamma =
       end;
       (* Refine *)
       let new_cexs = CexSet.(diff (of_list (C.normalize cex)) prev_cexs) in
-      if CexSet.is_empty new_cexs then
-        Fn.fatal "NoProgress"
-      else
+      if CexSet.is_empty new_cexs then begin
+        match update_config config with
+        | Some config -> cegar_loop config prev_cexs loop_count psi gamma
+        | None        -> raise NoProgress
+      end else
         let new_gamma, next_cexs =
-          if false then
-            let next_cexs = CexSet.union prev_cexs new_cexs in
-            let new_gamma =
-              let rec loop gamma ncexs =
-                match ncexs with
-                | [] ->
-                    Some gamma
-                | ncex::ncexs ->
-                    Log.info begin fun m -> m ~header:"Refine:cex" "%a"
-                      C.pp_hum_normalized ncex
-                    end;
-                    begin match add_mesure_time "Refine" @@ fun () ->
-                      Refine.run psi ncex gamma
-                    with
-                    | `Refined new_gamma -> loop new_gamma ncexs
-                    | `Feasible -> None
-                    end
-              in loop gamma (CexSet.to_list new_cexs)
-            in new_gamma, next_cexs
-          else
-            let ncex = List.hd_exn @@ CexSet.to_list new_cexs in
-            let next_cexs = CexSet.add prev_cexs ncex in
-            let new_gamma =
-              Log.info begin fun m -> m ~header:"Refine:cex" "%a"
-                C.pp_hum_normalized ncex
-              end;
-              begin match add_mesure_time "Refine" @@ fun () ->
-                Refine.run psi ncex gamma
-              with
-              | `Refined new_gamma -> Some new_gamma
-              | `Feasible -> None
-              end
-            in new_gamma, next_cexs
+          let ncex = List.hd_exn @@ CexSet.to_list new_cexs in
+          let next_cexs = CexSet.add prev_cexs ncex in
+          let new_gamma =
+            Log.info begin fun m -> m ~header:"Refine:cex" "%a"
+              C.pp_hum_normalized ncex
+            end;
+            begin match add_mesure_time "Refine" @@ fun () ->
+              Refine.run psi ncex gamma
+            with
+            | `Refined new_gamma -> Some new_gamma
+            | `Feasible -> None
+            end
+          in new_gamma, next_cexs
         in
           if !Options.oneshot then failwith "oneshot";
           match new_gamma with
           | Some new_gamma ->
-              cegar_loop next_cexs (loop_count+1) psi new_gamma
+              cegar_loop !orig_config next_cexs (loop_count+1) psi new_gamma
           | None ->
               `Invalid
 
 let main file =
-  let psi, gamma = Syntax.parse_file file in
+  let orig_psi, gamma = Syntax.parse_file file in
   Log.app begin fun m -> m ~header:"Input" "%a"
-    Print.(hflz_hes simple_ty_) psi
+    Print.(hflz_hes simple_ty_) orig_psi
   end;
-  let psi = Syntax.Trans.Simplify.hflz_hes psi in
+  let psi = Syntax.Trans.Simplify.hflz_hes orig_psi in
   Log.app begin fun m -> m ~header:"Simplified" "%a"
     Print.(hflz_hes simple_ty_) psi
   end;
-  cegar_loop CexSet.empty 1 psi gamma
-
+  read_orig_config();
+  try
+    cegar_loop !orig_config CexSet.empty 1 psi gamma
+  with NoProgress when !Options.Preprocess.inlining ->
+    Options.Preprocess.inlining := false;
+    let psi = Syntax.Trans.Simplify.hflz_hes orig_psi in
+    Log.app begin fun m -> m ~header:"Simplified" "%a"
+      Print.(hflz_hes simple_ty_) psi
+    end;
+    cegar_loop !orig_config CexSet.empty 1 psi gamma
