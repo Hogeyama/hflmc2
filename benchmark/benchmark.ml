@@ -77,7 +77,7 @@ let run_hflmc2 params dir file =
         if String.is_prefix out ~prefix:"Sat" ||
            String.is_prefix out ~prefix:"Verification Result:\n  Valid"
         then Success {tag = `Valid ; time} else
-        if String.is_prefix out ~prefix:"Unsat" ||
+        if String.is_prefix out ~prefix:"UnSat" ||
            String.is_prefix out ~prefix:"Verification Result:\n  Invalid"
         then Success {tag = `Invalid ; time}
         else Failure { stdout = out; stderr = err}
