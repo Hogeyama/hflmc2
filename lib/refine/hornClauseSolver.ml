@@ -415,7 +415,60 @@ module Hoice = struct
             in PredVarMap.add_exn acc ~key:pv ~data:[formula]
           end
       | _ -> assert false
+end
 
+module FpatSolver = struct
+  let solve (raw_solver : Fpat.HCCSSolver.t) hccs' hccs =
+    let map = raw_solver hccs' in
+    Log.info begin fun m -> m ~header:"FpatAnswer" "%a"
+      Fpat.PredSubst.pr map;
+    end;
+    let raw_solution =
+      StrMap.of_alist_exn @@ List.map map ~f:begin function
+      | Fpat.Idnt.V x, pred -> x, pred
+      | _ -> assert false
+      end
+    in
+    let pvs = PredVarSet.of_list @@
+      List.concat_map hccs ~f:begin fun hcc ->
+        match hcc.head with
+        | `P _ -> hcc.body.pvs
+        | `V v -> v :: hcc.body.pvs
+      end
+    in
+    PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->
+      let pv_name = match pv with
+        | PredVar (Pos, aged) -> "|"^TraceVar.string_of_aged aged^"|"
+        | PredVar (Neg, _) -> assert false
+      in
+      match StrMap.find raw_solution pv_name with
+      | Some (fpat_args, fpat_pred) ->
+          let fpat_args = List.map fpat_args ~f:begin function
+             | Fpat.Idnt.V x, _ -> x
+             | _ -> assert false
+             end
+          in
+          let pv_args = args_of_pred_var pv in
+          let rename_map = StrMap.of_alist_exn @@
+            List.map2_exn fpat_args pv_args ~f:begin fun fx x ->
+              fx, x
+            end
+          in
+          let rename s = match StrMap.find rename_map s with
+            | None -> (* ??? *)
+                if true then assert false;
+                let orig   = Id.gen ~name:"foo" (TyBool()) in
+                let parent = TraceVar.(mk_aged ~age:0 @@ Nt {orig}) in
+                let name   = Id.gen ~name:s TyInt in
+                let fvs    = [] in
+                let nth    = 0 in
+                `I (TraceVar.Local { parent; name; fvs; nth })
+            | Some v -> `I v
+          in
+          let formula : HornClause.formula = (OfFpat.formula rename fpat_pred)
+          in PredVarMap.add_exn acc ~key:pv ~data:[formula]
+      | None -> assert false
+    end
 end
 
 let solve_hccs : HornClause.t list -> solution =
@@ -429,85 +482,40 @@ let solve_hccs : HornClause.t list -> solution =
       Fpat.HCCS.save_smtlib2 tmp_file hccs';
       tmp_file
     end;
-
-    let solve (raw_solver : Fpat.HCCSSolver.t) _ =
-      let map = raw_solver hccs' in
-      Log.info begin fun m -> m ~header:"FpatAnswer" "%a"
-        Fpat.PredSubst.pr map;
-      end;
-      let raw_solution =
-        StrMap.of_alist_exn @@ List.map map ~f:begin function
-        | Fpat.Idnt.V x, pred -> x, pred
-        | _ -> assert false
-        end
-      in
-      let pvs = PredVarSet.of_list @@
-        List.concat_map hccs ~f:begin fun hcc ->
-          match hcc.head with
-          | `P _ -> hcc.body.pvs
-          | `V v -> v :: hcc.body.pvs
-        end
-      in
-      PredVarSet.fold pvs ~init:PredVarMap.empty ~f:begin fun acc pv ->
-        let pv_name = match pv with
-          | PredVar (Pos, aged) -> "|"^TraceVar.string_of_aged aged^"|"
-          | PredVar (Neg, _) -> assert false
-        in
-        match StrMap.find raw_solution pv_name with
-        | Some (fpat_args, fpat_pred) ->
-            let fpat_args = List.map fpat_args ~f:begin function
-               | Fpat.Idnt.V x, _ -> x
-               | _ -> assert false
-               end
-            in
-            let pv_args = args_of_pred_var pv in
-            let rename_map = StrMap.of_alist_exn @@
-              List.map2_exn fpat_args pv_args ~f:begin fun fx x ->
-                fx, x
-              end
-            in
-            let rename s = match StrMap.find rename_map s with
-              | None -> (* ??? *)
-                  if true then assert false;
-                  let orig   = Id.gen ~name:"foo" (TyBool()) in
-                  let parent = TraceVar.(mk_aged ~age:0 @@ Nt {orig}) in
-                  let name   = Id.gen ~name:s TyInt in
-                  let fvs    = [] in
-                  let nth    = 0 in
-                  `I (TraceVar.Local { parent; name; fvs; nth })
-              | Some v -> `I v
-            in
-            let formula : HornClause.formula = (OfFpat.formula rename fpat_pred)
-            in PredVarMap.add_exn acc ~key:pv ~data:[formula]
-        | None -> assert false
-      end
-
-    in
-    let solvers =
-      let open Fpat in
-      (if !Hflmc2_options.Refine.use_hoice then Fn.id else List.tl_exn)
-      [ "Hoice"
-          , Hoice.solve
-      ; "GenHCCSSolver"
-          , solve @@ GenHCCSSolver.solve (CHGenInterpProver.interpolate false)
-      ; "GenHCCSSolver+Interp"
-          , solve @@ GenHCCSSolver.solve (CHGenInterpProver.interpolate true)
-      ; "BwIPHCCSSolver"
-          , solve @@ BwIPHCCSSolver.solve
-      ; "Pdr"
-          , solve @@ HCCSSolver.solve_pdr
+    let hoice_solvers =
+      [ "Hoice(merge)" , (fun _ -> Hoice.solve_merge hccs)
+      ; "Hoice"        , (fun _ -> Hoice.solve hccs) 
       ]
     in
+    let fpat_solvers =
+      let open Fpat in
+      [ "GenHCCSSolver"
+          , (fun _ -> FpatSolver.solve
+              (GenHCCSSolver.solve (CHGenInterpProver.interpolate false)) hccs' hccs)
+      ; "GenHCCSSolver+Interp"
+          , (fun _ -> FpatSolver.solve
+              (GenHCCSSolver.solve (CHGenInterpProver.interpolate true)) hccs' hccs)
+      ; "BwIPHCCSSolver"
+          , (fun _ -> FpatSolver.solve BwIPHCCSSolver.solve hccs' hccs)
+      ; "Pdr"
+          , (fun _ -> FpatSolver.solve HCCSSolver.solve_pdr hccs' hccs)
+      ]
+    in
+    let run (name, solver) =
+      match solver () with
+      | ans -> Some ans
+      | exception e ->
+          Log.warn begin fun m -> m ~header:"HornClauseSolver"
+            "`%s` failed to solve the HCCS: %s"
+            name (Printexc.to_string e)
+          end;
+          None
+    in
     try
-      List.find_map_exn solvers ~f:begin fun (name, solver) ->
-        match solver hccs with
-        | ans -> Some ans
-        | exception e ->
-            Log.warn begin fun m -> m ~header:"HornClauseSolver"
-              "`%s` failed to solve the HCCS: %s"
-              name (Printexc.to_string e)
-            end;
-            None
+      if !Hflmc2_options.Refine.use_hoice then begin
+        List.find_map_exn (hoice_solvers@fpat_solvers) ~f:run
+      end else begin
+        List.find_map_exn fpat_solvers ~f:run
       end
     with Not_found ->
       Log.err (fun m -> m ~header:"HornClauseSolver" "Could not solve HCCS");
