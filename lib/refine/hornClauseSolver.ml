@@ -489,14 +489,14 @@ let solve_hccs : HornClause.t list -> solution =
     in
     let fpat_solvers =
       let open Fpat in
-      [ "BwIPHCCSSolver"
-          , (fun _ -> FpatSolver.solve BwIPHCCSSolver.solve hccs' hccs)
-      ; "GenHCCSSolver"
+      [ "GenHCCSSolver"
           , (fun _ -> FpatSolver.solve
               (GenHCCSSolver.solve (CHGenInterpProver.interpolate false)) hccs' hccs)
       ; "GenHCCSSolver+Interp"
           , (fun _ -> FpatSolver.solve
               (GenHCCSSolver.solve (CHGenInterpProver.interpolate true)) hccs' hccs)
+      ; "BwIPHCCSSolver"
+          , (fun _ -> FpatSolver.solve BwIPHCCSSolver.solve hccs' hccs)
       ; "Pdr"
           , (fun _ -> FpatSolver.solve HCCSSolver.solve_pdr hccs' hccs)
       ]
