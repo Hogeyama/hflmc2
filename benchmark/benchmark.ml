@@ -106,8 +106,8 @@ let run_bench params =
   in
   let git_status =
     if params.suzuki_san then None else
-    let _, commit_hash, _ = run_command [|"git";"describe";"--always" |] in
-    let dirty = match run_command [|"git";"describe";"--always" |] with
+    let _, commit_hash, _ = run_command [|"git";"describe";"--always"|] in
+    let dirty = match run_command [|"git";"diff";"--quiet"|] with
       | WEXITED 0,_,_ -> ""
       | _ -> "(dirty)"
     in
