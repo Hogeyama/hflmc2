@@ -566,7 +566,7 @@ let rec abstract_infer
           | (Some f, psi_s, pat), (_, psi_m,_)
           | (_, psi_m,_), (Some f, psi_s, pat) ->
               begin match ope with
-              | `Or -> (* もっと最適化できるかも *)
+              | `Or when !Options.optimize_or ->
                   let phi_s =
                     abstract_check env psi_s TyBool
                   in
@@ -679,11 +679,10 @@ and abstract_check
       end;
       phi
 
-let abstract_rule : gamma -> int -> Type.simple_ty Hflz.hes_rule -> Hfl.hes_rule =
-  fun gamma nth { var; body; fix } ->
+let abstract_rule : gamma -> Type.simple_ty Hflz.hes_rule -> Hfl.hes_rule =
+  fun gamma { var; body; fix } ->
     let env = { gamma; preds_set=FormulaSet.empty; guard=[]} in
     let aty = IdMap.lookup gamma var in
-    is_main := nth=0;
     let rule' =
       Hfl.{ var  = Id.{ var with ty = IType.abstract aty }
           ; body = abstract_check env body aty
@@ -703,7 +702,7 @@ let abstract
     reset_name_of_formulas();
     let gamma = IdMap.map gamma' ~f:IType.of_bool_base in
     Log.info begin fun m -> m ~header:"IntEnv" "%a" pp_gamma gamma end;
-    List.mapi ~f:(abstract_rule gamma) hes
+    List.map ~f:(abstract_rule gamma) hes
 
 (* XXX ad-hoc *)
 module Alpha = struct
