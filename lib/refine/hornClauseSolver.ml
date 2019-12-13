@@ -471,6 +471,38 @@ module FpatSolver = struct
     end
 end
 
+(* number of (conjunction | disjunction) and
+ * number of integer constant other than 0,-1,1 *)
+let size_of_solution : solution -> int * int = fun sol ->
+  let add (x1,y1) (x2,y2) = (x1+x2, y1+y2) in
+  let rec size_of_arith : arith -> int * int = function
+    | Int (0 | -1 | 1) -> (0, 0)
+    | Int _ -> (0, 1)
+    | Var _ -> (0, 0)
+    | Op (_, as') ->
+        List.fold as' ~init:(0,0) ~f:begin fun acc x ->
+          add acc (size_of_arith x)
+        end
+  in
+  let rec size_of_formula : formula -> int * int = function
+    | Bool _ -> (0, 0)
+    | Var _  -> (0, 0)
+    | And xs | Or xs ->
+        add (1,0) @@
+        List.fold xs ~init:(0,0) ~f:begin fun acc x ->
+          add acc (size_of_formula x)
+        end
+    | Pred (_, as') ->
+        List.fold as' ~init:(0,0) ~f:begin fun acc x ->
+          add acc (size_of_arith x)
+        end
+  in
+  PredVarMap.fold sol ~init:(0,0) ~f:begin fun ~key:_ ~data:fs acc ->
+    List.fold_left fs ~init:acc ~f:begin fun acc f ->
+      add acc (size_of_formula f)
+    end
+  end
+
 let solve_hccs : HornClause.t list -> solution =
   fun hccs ->
     Log.info begin fun m -> m ~header:"solve_hccs" "@[<v>%a@]"
@@ -513,7 +545,29 @@ let solve_hccs : HornClause.t list -> solution =
     in
     try
       if !Hflmc2_options.Refine.use_hoice then begin
-        List.find_map_exn (hoice_solvers@fpat_solvers) ~f:run
+        let hoice_sol = List.find_map hoice_solvers ~f:run in
+        let fpat_sol  = List.find_map fpat_solvers ~f:run in (* TODO timeout *)
+        match hoice_sol, fpat_sol with
+        | Some hoice_sol, Some fpat_sol ->
+            let hoice_size = size_of_solution hoice_sol in
+            let fpat_size  = size_of_solution fpat_sol  in
+            let sol, ans =
+              if hoice_size <= fpat_size
+              then hoice_sol, "Hoice"
+              else fpat_sol,  "Fpat"
+            in
+            Log.info begin fun m -> m ~header:("SelectAnswer:"^ans) "@[<v>%s : (%d,%d)@,%s : (%d,%d)@]"
+              "size of hoice's solution " (fst hoice_size) (snd hoice_size)
+              "size of fpat's  solution " (fst fpat_size)  (snd fpat_size)
+            end;
+            sol
+        | Some ans, None ->
+            Log.info begin fun m -> m ~header:"SelectAnswer:Hoice" "Fpat failed" end;
+            ans
+        | None, Some ans ->
+            Log.info begin fun m -> m ~header:"SelectAnswer:Fpat" "Hoice failed" end;
+            ans
+        | None, None -> raise Not_found
       end else begin
         List.find_map_exn fpat_solvers ~f:run
       end
@@ -559,7 +613,6 @@ let solve_hccss : HornClause.t list list -> solution = fun css ->
       | `Both (x,y) -> Some (x@y)
       end
   in List.fold_left css ~init:PredVarMap.empty ~f
-
 
 let solution_to_env : simple_ty Hflz.hes -> solution -> Hflmc2_abstraction.env =
   fun hes solution ->
