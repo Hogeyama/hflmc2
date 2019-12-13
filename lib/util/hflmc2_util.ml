@@ -51,10 +51,10 @@ module List = struct
       List.fold_left xs ~init:[] ~f:begin fun xs x ->
         cons_if_uniq x xs
       end
-  let subset xs ys =
+  let subset ?(equal=Core.Poly.equal)xs ys =
     for_all xs ~f:begin fun x ->
       exists ys ~f:begin fun y ->
-        x = y end end
+        equal x y end end
   (* compareをリスペクトするtotal orderがあればmerge sortの
    * 要領でO(n log n)でできるがこれがボトルネックとなるとは思えないので
    * とりあえず O(n^2) で実装する
@@ -184,7 +184,7 @@ module Fn = struct
   let const x _ = x
 
   let print ?(tag="") pp x =
-    if tag = ""
+    if String.equal tag ""
     then Format.printf "@[%a@]@." pp x
     else Format.printf "%s: @[%a@]@." tag pp x
 

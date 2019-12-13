@@ -66,7 +66,7 @@ let with_counters_rollbacked f =
   let backup = Hashtbl.copy counters in
   let r = f () in
   Hashtbl.clear counters;
-  Hashtbl.iteri backup ~f:(Hashtbl.replace counters);
+  Hashtbl.iteri backup ~f:(Hashtbl.add_exn counters);
   r
 
 let mk_aged ~age tv = { var = tv; age }
