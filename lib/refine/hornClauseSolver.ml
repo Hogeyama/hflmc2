@@ -314,16 +314,16 @@ module Hoice = struct
           HornClause.{ head; body }
         end
       in
-      Log.warn begin fun m -> m ~header:"nonrec_hccs" "@[<v>%a@]"
+      Log.debug begin fun m -> m ~header:"nonrec_hccs" "@[<v>%a@]"
         (Print.list HornClause.pp_hum) hccs
       end;
-      Log.warn begin fun m -> m ~header:"rec_hccs" "@[<v>%a@]"
+      Log.debug begin fun m -> m ~header:"rec_hccs" "@[<v>%a@]"
         (Print.list HornClause.pp_hum) rec_hccs
       end;
       let file = "/tmp/hoice.smt2" in
       Fpat.HCCS.save_smtlib2 file (ToFpat.hccs rec_hccs);
       let _, out, _ = Fn.run_command ~timeout:20.0 [|"hoice"; file|] in
-      Log.warn begin fun m -> m ~header:"HoiceOutput" "%s"
+      Log.debug begin fun m -> m ~header:"HoiceOutput" "%s"
         out
       end;
       match String.lsplit2 out ~on:'\n' with
@@ -333,7 +333,7 @@ module Hoice = struct
             | Done (sexp, _) -> parse_model sexp
             | _ -> assert false
           in
-          Log.warn begin fun m ->
+          Log.info begin fun m ->
             let pp ppf (f, (args, body)) =
               Print.pf ppf "%s(@[<h>%a@]) = %a"
                 f
@@ -371,13 +371,13 @@ module Hoice = struct
           | `V v -> v :: hcc.body.pvs
         end
       in
-      Log.warn begin fun m -> m ~header:"HoiceHCCS" "@[<v>%a@]"
+      Log.debug begin fun m -> m ~header:"HoiceHCCS" "@[<v>%a@]"
         (Print.list HornClause.pp_hum) hccs
       end;
       let file = "/tmp/hoice.smt2" in
       Fpat.HCCS.save_smtlib2 file (ToFpat.hccs hccs);
       let _, out, _ = Fn.run_command ~timeout:20.0 [|"hoice"; file|] in
-      Log.warn begin fun m -> m ~header:"HoiceOutput" "%s"
+      Log.debug begin fun m -> m ~header:"HoiceOutput" "%s"
         out
       end;
       match String.lsplit2 out ~on:'\n' with
@@ -387,7 +387,7 @@ module Hoice = struct
             | Done (sexp, _) -> parse_model sexp
             | _ -> assert false
           in
-          Log.warn begin fun m ->
+          Log.info begin fun m ->
             let pp ppf (f, (args, body)) =
               Print.pf ppf "%s(@[<h>%a@]) = %a"
                 f
