@@ -80,8 +80,8 @@ type params =
   ; refine_legacy : bool [@default false] [@docs "Refine"]
     (** Use old refine algorithm *)
 
-  ; refine_hoice : bool [@default false] [@docs "Refine"]
-    (** Use hoice as CHC solver *)
+  ; refine_no_hoice : bool [@default false] [@docs "Refine"]
+    (** Do not use hoice as CHC solver *)
 
   }
   [@@deriving cmdliner,show]
@@ -96,7 +96,7 @@ let set_up_params params =
   set_ref Abstraction.cartesian            (not params.abst_no_cartesian);
   set_ref Abstraction.modify_pred_by_guard (not params.abst_no_modify_pred_by_guard);
   set_ref Refine.use_legacy                params.refine_legacy;
-  set_ref Refine.use_hoice                 params.refine_hoice;
+  set_ref Refine.use_hoice                 (not params.refine_no_hoice);
   params.input
 
 (******************************************************************************)
