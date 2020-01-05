@@ -33,6 +33,7 @@ let rec of_arith : Arith.t -> Fpat.Formula.t = function
         | Add  -> Fpat.Const.Add Fpat.Type.mk_int
         | Sub  -> Fpat.Const.Sub Fpat.Type.mk_int
         | Mult -> Fpat.Const.Mul Fpat.Type.mk_int
+        | Div  -> Fpat.Const.Div Fpat.Type.mk_int
       in Fpat.Formula.of_term @@ Fpat.Term.mk_app op'
             [ Fpat.Formula.term_of @@ of_arith a1
             ; Fpat.Formula.term_of @@ of_arith a2 ]

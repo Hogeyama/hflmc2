@@ -50,6 +50,7 @@ end = struct
             | I.T_TRUE      -> "TRUE"
             | I.T_START_HES -> "START_HES"
             | I.T_STAR      -> "STAR"
+            | I.T_SLASH     -> "SLASH"
             | I.T_RSQUARE   -> "RSQUARE"
             | I.T_RPAREN    -> "RPAREN"
             | I.T_RANGRE    -> "RANGRE"

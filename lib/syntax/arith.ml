@@ -4,6 +4,7 @@ type op =
   | Add
   | Sub
   | Mult
+  | Div
   [@@deriving eq,ord,show,iter,map,fold,sexp]
 
 (* arithmetic expresion parametrized by variable type *)

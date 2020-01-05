@@ -37,6 +37,7 @@ module Prec = struct
   let eq    = 4
   let add   = 6
   let mult  = 7
+  let div   = 8
   let neg   = 9
   let app   = 10
 
@@ -44,14 +45,17 @@ module Prec = struct
     | Arith.Add -> add
     | Arith.Sub -> add
     | Arith.Mult -> mult
+    | Arith.Div -> div
   let op_is_leftassoc = function
     | Arith.Add -> true
     | Arith.Sub -> true
     | Arith.Mult -> true
+    | Arith.Div -> true
   let op_is_rightassoc = function
     | Arith.Add -> false
     | Arith.Sub -> false
     | Arith.Mult -> false
+    | Arith.Div -> false
   let of_pred = fun _ -> eq
 end
 
@@ -89,6 +93,7 @@ let op : Arith.op t =
     | Add  -> Fmt.string ppf "+"
     | Sub  -> Fmt.string ppf "-"
     | Mult -> Fmt.string ppf "*"
+    | Div  -> Fmt.string ppf "/"
 let op_ : Arith.op t_with_prec =
   ignore_prec op
 

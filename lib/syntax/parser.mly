@@ -17,7 +17,7 @@ open Raw_hflz
 %token DEF_G "=v"
 %token DEF_L "=m"
 
-%token PLUS  "+" MINUS "-" STAR  "*" NEG
+%token PLUS  "+" MINUS "-" STAR "*" SLASH "/" NEG
 %token EQ "=" NEQ "<>" LE "<=" GE ">=" /* LT "<" GT ">" */
 %token AND "&&" OR "||"
 
@@ -152,6 +152,7 @@ atom_predicate:
 | "+" { Arith.Add  }
 | "-" { Arith.Sub  }
 | "*" { Arith.Mult }
+| "/" { Arith.Div  }
 
 pred:
 | "="  { Formula.Eq  }
