@@ -232,10 +232,10 @@ let rec hfl_ prec ppf (phi : Hfl.t) = match phi with
   | Var x ->
       id ppf x
   | Or (phis, `Inserted) ->
-      pf ppf "or %a"
+      pf ppf "or%a"
         (list_ketsucomma (hfl_ Prec.zero)) phis
   | And (phis, `Inserted) ->
-      pf ppf "and %a"
+      pf ppf "and%a"
         (list_ketsucomma (hfl_ Prec.zero)) phis
   | Or (phis, `Original) ->
       let sep ppf () = Fmt.pf ppf "@ || " in
