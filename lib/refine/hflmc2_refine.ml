@@ -321,8 +321,7 @@ let gen_HCCS
             go reduce_env guard pv psi1 cex
         | And (_,psi2), AndR cex ->
             go reduce_env guard pv psi2 cex
-        | Or (psi2,psi1), Or ((f2, cex2),(_f1, cex1)) ->
-        (* | Or (psi1,psi2), Or ((_f1, cex1),(f2, cex2)) -> *)
+        | Or (psi1,psi2), Or ((_f1, cex1),(f2, cex2)) ->
             begin match (to_simple_expr psi1 (cex_of_trace cex1), psi1, cex1) ,
                         (to_simple_expr psi2 (cex_of_trace cex2), psi2, cex2) with
             | (Some f1, _, _), (Some f2, _, _) ->
