@@ -1,5 +1,5 @@
 (menhir
- (flags --graph --dump --explain --table --inspection)
+;  (flags --graph --dump --explain --table --inspection)
  (modules parser))
 (ocamllex
  (modules lexer))
@@ -9,6 +9,6 @@
  (libraries
    hflmc2_util
    hflmc2_options
-   menhirLib)
+   )
  (preprocess (pps ppx_deriving.std ppx_compare ppx_sexp_conv)))
 (env (dev (flags (:standard -warn-error -A -w -3-26-27-33))))
