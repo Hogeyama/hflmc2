@@ -1,0 +1,7 @@
+#!/bin/bash
+out=`mochi-nontremination -only-result -non-termination $1`
+if [ `echo $out | grep -cF Non-terminating` -eq 1 ]; then
+  echo -n "Valid"
+else
+  echo -n "Unknown"
+fi

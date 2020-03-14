@@ -5,3 +5,15 @@ _build
 .*
 input/
 TODO
+# mochi
+*.hors
+*.horsat_out
+*.dot
+*.annot
+*.hrs
+*.sol
+*.smt2
+*.smt2.ans
+*.status
+*.json
+*.trecs_out

@@ -2,12 +2,29 @@
 open Core
 open Hflmc2_util.Fn
 
+type file_type = HFL | ML | HOCHC
+let file_type_of_string = function
+  | "hfl"   -> Result.Ok HFL
+  | "ml"    -> Result.Ok ML
+  | "hochc" -> Result.Ok HOCHC
+  | s       -> Result.Error (`Msg ("Unknown file_type: " ^ s))
+let pp_file_type ppf = function
+  | HFL   -> Fmt.string ppf "hfl"
+  | ML    -> Fmt.string ppf "ml"
+  | HOCHC -> Fmt.string ppf "hochc"
+let file_type_cmdliner_converter = file_type_of_string, pp_file_type
+
 type [@warning "-39"] params =
-  { suzuki_san : bool        [@default false]
-  ; timeout    : int         [@default 20]
-  ; options    : string list [@default []]
-  ; case_set   : string      [@pos 0] [@docv "CASE"]
+  { script     : string           [@default "hflmc2"]
+    (** Specify a script in benchmark/scripts.
+        It should not put string to stdout except 'Valid', 'Invalid', 'Unknown', or 'Error' *)
+  ; file_type  : file_type option [@conv file_type_cmdliner_converter] [@docv "hfl|ml|hochc"]
+  ; case_set   : string           [@pos 0] [@docv "CASE"]
+    (** Specify a file in benchmark/lists *)
+  ; timeout    : int              [@default 20]
+    (** Timeout in seconds *)
   ; save_file  : string option
+  ; verbose    : bool
   }
   [@@deriving cmdliner]
 
@@ -15,6 +32,13 @@ let params =
   match Cmdliner.Term.(eval (params_cmdliner_term (), info "hflmc2-benchmark")) with
   | `Ok p -> p
   | _     -> exit 1
+let file_type = match params.file_type, params.script with
+  | Some ty, _  -> ty
+  | _, "mochi"  -> ML
+  | _, "horus"  -> HOCHC
+  | _, "hflmc"  -> HFL
+  | _, "hflmc2" -> HFL
+  | _           -> HFL
 
 let dune_root =
   let rec go dir =
@@ -24,23 +48,11 @@ let dune_root =
   in
   Filename.realpath (go (Sys.getcwd())) ^ "/"
 
-let cases case_set =
+let list_cases case_set =
   In_channel.(with_file (dune_root^"benchmark/lists/"^case_set) ~f:input_all)
   |> String.split_lines
 
-let command params file =
-  Array.of_list @@ List.concat @@
-    [ if params.suzuki_san
-      then [ "hflmc"
-           ; "--hc-solver"; "rcaml"
-           ; "--hc-solver-path"; "/home/hogeyama/.local/bin/rcaml"
-           ]
-      else [ "hflmc2"
-           ; "--quiet"
-           ]
-    ; params.options
-    ; [ file ]
-    ]
+let script = dune_root^"benchmark/scripts/"^params.script
 
 type time = float
   [@@deriving yojson]
@@ -48,22 +60,24 @@ type success =
   { tag  : [`Valid | `Invalid]
   ; time : time
   } [@@deriving yojson]
-type failure =
-  { stdout : string
-  ; stderr : string
-  } [@@deriving yojson]
 type result =
   | Success of success
-  | Failure of failure
+  | Unknown of string
+  | Failure of string
   | Timeout
   [@@deriving yojson]
 type case_result =
-  { file : string
+  { case : string
   ; result : result
   } [@@deriving yojson]
 
-let run_hflmc2 params dir file =
-  let cmd         = command params (dir^file) in
+let kill_zombie_processes () =
+  List.iter ["hflmc";"hflmc2";"mochi";"horsat";"z3"] ~f:begin fun p ->
+    ignore @@ run_command [|"pkill"; p|]
+  end
+
+let run_hflmc2 params case file =
+  let cmd         = [| script; file |] in
   let timeout     = float_of_int params.timeout in
   let (p, out, err), time =
     let start = Unix.gettimeofday () in
@@ -73,17 +87,15 @@ let run_hflmc2 params dir file =
   in
   begin match p with
   | WEXITED _ ->
-      let result =
-        if String.is_prefix out ~prefix:"Sat" ||
-           String.is_prefix out ~prefix:"Verification Result:\n  Valid"
-        then Success {tag = `Valid ; time} else
-        if String.is_prefix out ~prefix:"UnSat" ||
-           String.is_prefix out ~prefix:"Verification Result:\n  Invalid"
-        then Success {tag = `Invalid ; time}
-        else Failure { stdout = out; stderr = err}
-      in { file; result }
+      let result = match out with
+        | "Valid"   -> Success { tag = `Valid; time }
+        | "Invalid" -> Success { tag = `Invalid; time }
+        | "Unknown" -> Unknown err
+        | "Error"   -> Failure err
+        | _ -> failwith @@ "Bad script: " ^ out
+      in { case; result }
   | _ ->
-      { file ; result = Timeout }
+      { case; result = Timeout }
   end
 
 type meta =
@@ -98,14 +110,14 @@ type whole_result =
   } [@@deriving yojson]
 
 let run_bench params =
-  let files = cases params.case_set in
+  let cases = list_cases params.case_set in
   let max_len =
-    files
+    cases
     |> List.map ~f:String.length
     |> List.fold ~init:0 ~f:max
   in
   let git_status =
-    if params.suzuki_san then None else
+    if params.script <> "hflmc2" then None else
     let _, commit_hash, _ = run_command [|"git";"describe";"--always"|] in
     let dirty = match run_command [|"git";"diff";"--quiet"|] with
       | WEXITED 0,_,_ -> ""
@@ -114,25 +126,32 @@ let run_bench params =
     Some (commit_hash^dirty)
   in
   let meta =
-    { command    = String.concat_array ~sep:" " (command params "")
+    { command    = script
     ; timeout    = params.timeout
     ; git_status = git_status
     }
   in
   let results =
-    List.map files ~f:begin fun file ->
-      let path_to_show =
-        let pudding = String.(init (max_len - length file) ~f:(Fn.const ' ')) in
-        file ^ pudding
+    List.map cases ~f:begin fun case ->
+      let formatted_case =
+        let pudding = String.(init (max_len - length case) ~f:(Fn.const ' ')) in
+        case ^ pudding
       in
-      print_string (path_to_show^": ");
+      print_string (formatted_case^": ");
+      let file = match file_type with
+        | HFL   -> dune_root^"benchmark/inputs/hfl/"  ^case^".in"
+        | ML    -> dune_root^"benchmark/inputs/ml/"   ^case^".ml"
+        | HOCHC -> dune_root^"benchmark/inputs/hochc/"^case^".inp"
+      in
       flush stdout;
-      let res = run_hflmc2 params (dune_root^"benchmark/inputs/") file in
+      let res = run_hflmc2 params case file in
       print_endline @@ begin match res.result with
         | Success s -> Format.sprintf "Success %7.3f" s.time
-        | Failure _ -> "Failure"
+        | Failure e -> "Failure" ^ (if params.verbose then ": "^e else "")
+        | Unknown e -> "Unknown" ^ (if params.verbose then ": "^e else "")
         | Timeout   -> "Timeout"
       end;
+      kill_processes();
       res
     end
   in
@@ -141,6 +160,8 @@ let run_bench params =
 let () =
   let result = run_bench params in
   let json : Yojson.Safe.t = whole_result_to_yojson result in
-  let save_file = Option.value ~default:"/tmp/hflmc2-bench" params.save_file in
+  let save_file =
+    let default = dune_root^"/benchmark/result/"^params.script^"-"^params.case_set^".json" in
+    Option.value ~default params.save_file in
   Yojson.Safe.to_file ~std:true save_file json
 

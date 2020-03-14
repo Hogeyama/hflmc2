@@ -1,0 +1,5 @@
+%HES
+MAIN_1243  =v true.
+FAIL_1259 u_1260 k_1261 =v false.
+Forall p      =v ForallAux p 0.
+ForallAux p x =v p x /\ ForallAux p (x-1) /\ ForallAux p (x+1).

@@ -1,0 +1,7 @@
+#!/bin/bash
+out=`hflmc2 --quiet $1 | tail -n1`
+case $out in
+  "  Valid"   ) echo -n "Valid";;
+  "  Invalid" ) echo -n "Invalid";;
+  *           ) echo -n "Error";;
+esac

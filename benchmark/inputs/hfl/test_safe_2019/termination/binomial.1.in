@@ -1,0 +1,5 @@
+%HES
+MAIN_99  =v ((n_382 < 0 \/ k_369 < 0) \/ true) /\ (n_382 >= 0 /\ k_369 >= 0 \/ true).
+FAIL_331 u_332 k_333 =v false.
+Forall p      =v ForallAux p 0.
+ForallAux p x =v p x /\ ForallAux p (x-1) /\ ForallAux p (x+1).

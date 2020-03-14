@@ -1,0 +1,7 @@
+#!/bin/bash
+out=`mochi -only-result -use-temp $1 | head -n1`
+case $out in
+  "Safe!"  ) echo -n "Valid";;
+  "Unsafe" ) echo -n "Invalid";;
+  *        ) echo -n "Error";;
+esac

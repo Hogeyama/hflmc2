@@ -1,0 +1,4 @@
+%HES
+MAIN_1  =v true.
+Forall p      =v ForallAux p 0.
+ForallAux p x =v p x /\ ForallAux p (x-1) /\ ForallAux p (x+1).

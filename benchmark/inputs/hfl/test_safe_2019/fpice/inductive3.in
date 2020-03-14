@@ -1,0 +1,6 @@
+%HES
+MAIN_6  =v F 3 (\x_32.(x_32 < 0 \/ true) /\ (x_32 >= 0 \/ FAIL_16 true (\x_29.true))).
+F x_4 k_f =v (x_4 >= (-1) \/ F (-2) k_f) /\ (x_4 < (-1) \/ (x_4 > 1 \/ k_f (2 * x_4 - 1)) /\ (x_4 <= 1 \/ k_f x_4)).
+FAIL_16 u_17 k_18 =v false.
+Forall p      =v ForallAux p 0.
+ForallAux p x =v p x /\ ForallAux p (x-1) /\ ForallAux p (x+1).
