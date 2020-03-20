@@ -1,5 +1,0 @@
-%HES
-MAIN_5  =v (arg1_26 > 0 /\ arg1_26 <= 0 \/ true) /\ ((arg1_26 <= 0 \/ arg1_26 > 0) \/ FAIL_11 true (\x_24.true)).
-FAIL_11 u_12 k_13 =v false.
-Forall p      =v ForallAux p 0.
-ForallAux p x =v p x /\ ForallAux p (x-1) /\ ForallAux p (x+1).

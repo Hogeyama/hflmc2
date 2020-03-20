@@ -1,5 +1,0 @@
-%HES
-MAIN_109  =v true.
-FAIL_1937 u_1938 k_1939 =v false.
-Forall p      =v ForallAux p 0.
-ForallAux p x =v p x /\ ForallAux p (x-1) /\ ForallAux p (x+1).

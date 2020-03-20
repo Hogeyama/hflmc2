@@ -1,5 +1,0 @@
-%HES
-MAIN_5  =v true.
-F_9 x_1 k_f_unused =v false.
-Forall p      =v ForallAux p 0.
-ForallAux p x =v p x /\ ForallAux p (x-1) /\ ForallAux p (x+1).

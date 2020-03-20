@@ -1,5 +1,0 @@
-%HES
-MAIN_64  =v true.
-FAIL_2464 u_2465 k_2466 =v false.
-Forall p      =v ForallAux p 0.
-ForallAux p x =v p x /\ ForallAux p (x-1) /\ ForallAux p (x+1).

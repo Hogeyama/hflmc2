@@ -1,5 +1,0 @@
-%HES
-MAIN_370  =v (x_16879 < 0 \/ true) /\ (x_16879 >= 0 \/ true).
-FAIL_16831 u_16832 k_16833 =v false.
-Forall p      =v ForallAux p 0.
-ForallAux p x =v p x /\ ForallAux p (x-1) /\ ForallAux p (x+1).

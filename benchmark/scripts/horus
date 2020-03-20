@@ -1,7 +1,0 @@
-#!/bin/bash
-out=`horus -sz $1 | z3 -in | tail -n1`
-case $out in
-  "unsat"  ) echo -n "Valid";;
-  "sat"    ) echo -n "Unknown";;
-  *        ) echo -n "Error";;
-esac

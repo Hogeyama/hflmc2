@@ -1,7 +1,0 @@
-#!/bin/bash
-out=`hflmc --hc-solver rcaml --hc-solver-path $HOME/.local/bin/rcaml $1 | tail -n1`
-case $out in
-  "Sat"   ) echo -n "Valid";;
-  "UnSat" ) echo -n "Invalid";;
-  *       ) echo -n "Error";;
-esac

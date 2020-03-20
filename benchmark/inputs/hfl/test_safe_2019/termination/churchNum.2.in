@@ -1,7 +1,0 @@
-%HES
-MAIN_306  =v
-  ((1 + 7 <= 1 + (2 * 7 + -8) \/ 1 + (2 * 7 + -8) < 0) \/ true)
-  /\ (1 + 7 > 1 + (2 * 7 + -8) /\ 1 + (2 * 7 + -8) >= 0 \/ FAIL_13056 true (\x_13161.true)).
-FAIL_13056 u_13057 k_13058 =v false.
-Forall p      =v ForallAux p 0.
-ForallAux p x =v p x /\ ForallAux p (x-1) /\ ForallAux p (x+1).
