@@ -76,6 +76,8 @@ type params =
   ; abst_no_cartesian : bool [@default false] [@docs "Abstraction"]
     (** Do Cartesian abstraction *)
 
+  ; abst_no_optimize_or : bool [@default false] [@docs "Abstraction"]
+
   (* Refine *)
   ; refine_legacy : bool [@default false] [@docs "Refine"]
     (** Use old refine algorithm *)
@@ -95,6 +97,7 @@ let set_up_params params =
   set_ref Abstraction.max_ands             params.abst_max_ands;
   set_ref Abstraction.cartesian            (not params.abst_no_cartesian);
   set_ref Abstraction.modify_pred_by_guard (not params.abst_no_modify_pred_by_guard);
+  set_ref Abstraction.optimize_or          (not params.abst_no_optimize_or);
   set_ref Refine.use_legacy                params.refine_legacy;
   set_ref Refine.use_hoice                 (not params.refine_no_hoice);
   params.input
