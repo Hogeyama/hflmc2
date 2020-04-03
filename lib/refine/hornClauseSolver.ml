@@ -377,6 +377,11 @@ module Hoice = struct
       end;
       let file = "/tmp/hoice.smt2" in
       Fpat.HCCS.save_smtlib2 file (ToFpat.hccs hccs);
+      Out_channel.write_all file ~data:begin
+        "(set-option :no-simplify-clauses true)\n"^
+        "(set-option :no-inlining true)\n"^
+        Fn.read_file file
+      end;
       let _, out, _ = Fn.run_command ~timeout:20.0 [|"hoice"; file|] in
       Log.debug begin fun m -> m ~header:"HoiceOutput" "%s"
         out
