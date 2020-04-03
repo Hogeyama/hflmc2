@@ -517,7 +517,7 @@ let solve_hccs : HornClause.t list -> solution =
     end;
     let hoice_solvers =
       [ "Hoice(merge)" , (fun _ -> Hoice.solve_merge hccs)
-      ; "Hoice"        , (fun _ -> Hoice.solve hccs) 
+      ; "Hoice"        , (fun _ -> Hoice.solve hccs)
       ]
     in
     let fpat_solvers =
@@ -577,43 +577,44 @@ let solve_hccs : HornClause.t list -> solution =
       Fn.fatal "Failed to solve HCCS"
 
 let solve_hccss : HornClause.t list list -> solution = fun css ->
-  let f : solution -> t list -> solution = fun current_solutions hccs ->
-    let lookup = function
-      | PredVar (Pos, _) -> None
-      | PredVar (Neg, aged) ->
-          Option.map ~f:(List.map ~f:Formula.mk_not) @@
-            PredVarMap.find current_solutions (PredVar (Pos, aged))
-    in
-    let subst_head = function
-      | `V v ->
-        begin match lookup v with
-        | Some (f::_) -> `P f
-        | _ -> `V v
+  List.fold_left css ~init:PredVarMap.empty ~f:begin
+    fun current_solutions hccs ->
+      let lookup = function
+        | PredVar (Pos, _) -> None
+        | PredVar (Neg, aged) ->
+            Option.map ~f:(List.map ~f:Formula.mk_not) @@
+              PredVarMap.find current_solutions (PredVar (Pos, aged))
+      in
+      let subst_head = function
+        | `V v ->
+          begin match lookup v with
+          | Some (f::_) -> `P f
+          | _ -> `V v
+          end
+        | `P f -> `P f
+      in
+      let subst_body body =
+        let pvs, phi =
+          List.partition_map body.pvs ~f:begin fun pv ->
+            match lookup pv with
+            | Some (f::_) -> `Snd f (* TODO fstで良いんか *)
+            | _ -> `Fst pv
+          end
+        in { pvs = pvs; phi = body.phi @ phi }
+      in
+      let hccs =
+        List.map hccs ~f:begin fun hcc ->
+          { body = subst_body hcc.body
+          ; head = subst_head hcc.head }
         end
-      | `P f -> `P f
-    in
-    let subst_body body =
-      let pvs, phi =
-        List.partition_map body.pvs ~f:begin fun pv ->
-          match lookup pv with
-          | Some (f::_) -> `Snd f (* TODO fstで良いんか *)
-          | _ -> `Fst pv
+      in
+      PredVarMap.merge current_solutions (solve_hccs hccs) ~f:
+        begin fun ~key:_ -> function
+        | `Left x -> Some x
+        | `Right x -> Some x
+        | `Both (x,y) -> Some (x@y)
         end
-      in { pvs = pvs; phi = body.phi @ phi }
-    in
-    let hccs =
-      List.map hccs ~f:begin fun hcc ->
-        { body = subst_body hcc.body
-        ; head = subst_head hcc.head }
-      end
-    in
-    PredVarMap.merge current_solutions (solve_hccs hccs) ~f:
-      begin fun ~key:_ -> function
-      | `Left x -> Some x
-      | `Right x -> Some x
-      | `Both (x,y) -> Some (x@y)
-      end
-  in List.fold_left css ~init:PredVarMap.empty ~f
+  end
 
 let solution_to_env : simple_ty Hflz.hes -> solution -> Hflmc2_abstraction.env =
   fun hes solution ->
