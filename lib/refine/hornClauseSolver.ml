@@ -479,31 +479,31 @@ end
 
 (* number of (conjunction | disjunction) and
  * number of integer constant other than 0,-1,1 *)
-let size_of_solution : solution -> int * int = fun sol ->
-  let add (x1,y1) (x2,y2) = (x1+x2, y1+y2) in
-  let rec size_of_arith : arith -> int * int = function
-    | Int (0 | -1 | 1) -> (0, 0)
-    | Int _ -> (0, 1)
-    | Var _ -> (0, 0)
+let size_of_solution : solution -> int * int * int = fun sol ->
+  let add (x1,y1,z1) (x2,y2,z2) = (x1+x2, y1+y2,z1+z2) in
+  let rec size_of_arith : arith -> int * int * int = function
+    | Int (0 | -1 | 1) -> (0, 0, 0)
+    | Int _ -> (0, 1, 0)
+    | Var _ -> (0, 0, 1)
     | Op (_, as') ->
-        List.fold as' ~init:(0,0) ~f:begin fun acc x ->
+        List.fold as' ~init:(0,0,0) ~f:begin fun acc x ->
           add acc (size_of_arith x)
         end
   in
-  let rec size_of_formula : formula -> int * int = function
-    | Bool _ -> (0, 0)
-    | Var _  -> (0, 0)
+  let rec size_of_formula : formula -> int * int * int = function
+    | Bool _ -> (0, 0, 0)
+    | Var v  -> Void.absurd v
     | And xs | Or xs ->
-        add (1,0) @@
-        List.fold xs ~init:(0,0) ~f:begin fun acc x ->
+        add (1,0,0) @@
+        List.fold xs ~init:(0,0,0) ~f:begin fun acc x ->
           add acc (size_of_formula x)
         end
     | Pred (_, as') ->
-        List.fold as' ~init:(0,0) ~f:begin fun acc x ->
+        List.fold as' ~init:(0,0,0) ~f:begin fun acc x ->
           add acc (size_of_arith x)
         end
   in
-  PredVarMap.fold sol ~init:(0,0) ~f:begin fun ~key:_ ~data:fs acc ->
+  PredVarMap.fold sol ~init:(0,0,0) ~f:begin fun ~key:_ ~data:fs acc ->
     List.fold_left fs ~init:acc ~f:begin fun acc f ->
       add acc (size_of_formula f)
     end
@@ -562,9 +562,11 @@ let solve_hccs : HornClause.t list -> solution =
               then hoice_sol, "Hoice"
               else fpat_sol,  "Fpat"
             in
-            Log.info begin fun m -> m ~header:("SelectAnswer:"^ans) "@[<v>%s : (%d,%d)@,%s : (%d,%d)@]"
-              "size of hoice's solution " (fst hoice_size) (snd hoice_size)
-              "size of fpat's  solution " (fst fpat_size)  (snd fpat_size)
+            Log.info begin fun m ->
+              let item ppf (x,y,z) = Print.pf ppf "(%d,%d,%d)" x y z in
+              m ~header:("SelectAnswer:"^ans) "@[<v>%s : %a@,%s : %a@]"
+              "size of hoice's solution " item hoice_size
+              "size of fpat's  solution " item fpat_size
             end;
             sol
         | Some ans, None ->
@@ -575,7 +577,13 @@ let solve_hccs : HornClause.t list -> solution =
             ans
         | None, None -> raise Not_found
       end else begin
-        List.find_map_exn fpat_solvers ~f:run
+        let fpat_sol  =  List.find_map_exn fpat_solvers ~f:run in 
+        let fpat_size  = size_of_solution fpat_sol  in
+        Log.err begin fun m ->
+          let item ppf (x,y,z) = Print.pf ppf "(%d,%d,%d)" x y z in
+          m ~header:"XXX" "%a" item fpat_size
+        end;
+        fpat_sol
       end
     with Not_found ->
       Log.err (fun m -> m ~header:"HornClauseSolver" "Could not solve HCCS");
