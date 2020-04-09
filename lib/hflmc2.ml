@@ -149,11 +149,16 @@ let rec cegar_loop (config : config) prev_cexs loop_count psi gamma =
               `Invalid
 
 let main file =
-  let orig_psi, gamma = Syntax.parse_file file in
+  let orig_psi, orig_gamma = Syntax.parse_file file in
   Log.app begin fun m -> m ~header:"Input" "%a"
     Print.(hflz_hes simple_ty_) orig_psi
   end;
   let psi = Syntax.Trans.Simplify.hflz_hes orig_psi in
+  let gamma =
+    IdMap.filter_keys orig_gamma ~f:begin fun x ->
+      List.mem ~equal:Id.eq (List.map psi ~f:(fun r -> Id.remove_ty r.var)) (Id.remove_ty x)
+    end
+  in
   Log.app begin fun m -> m ~header:"Simplified" "%a"
     Print.(hflz_hes simple_ty_) psi
   end;
@@ -166,4 +171,4 @@ let main file =
     Log.app begin fun m -> m ~header:"Simplified" "%a"
       Print.(hflz_hes simple_ty_) psi
     end;
-    cegar_loop !orig_config CexSet.empty 1 psi gamma
+    cegar_loop !orig_config CexSet.empty 1 psi orig_gamma
