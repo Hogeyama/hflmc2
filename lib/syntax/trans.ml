@@ -130,9 +130,9 @@ module Subst = struct
     let rec hflz : 'ty S.Hflz.t env -> 'ty S.Hflz.t -> 'ty S.Hflz.t =
       fun env phi -> match phi with
         | Var x ->
-            begin match IdMap.lookup env x with
-            | t -> t
-            | exception Not_found -> Var x
+            begin match IdMap.find env x with
+            | Some t -> t
+            | None -> Var x
             end
         | Or(phi1,phi2)  -> Or(hflz env phi1, hflz env phi2)
         | And(phi1,phi2) -> And(hflz env phi1, hflz env phi2)
@@ -171,9 +171,9 @@ module Subst = struct
     let rec hfl : S.Hfl.t env -> S.Hfl.t -> S.Hfl.t =
       fun env phi -> match phi with
         | Var x ->
-            begin match IdMap.lookup env x with
-            | t -> t
-            | exception Not_found -> Var x
+            begin match IdMap.find env x with
+            | Some t -> t
+            | None -> Var x
             end
         | Bool _         -> phi
         | Or(phis,k)     -> Or(List.map ~f:(hfl env) phis, k)
