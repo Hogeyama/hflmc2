@@ -8,6 +8,6 @@
    lwt.unix
    core))
 
-(env
-  (dev
-    (flags (:standard -warn-error -A))))
+(env (dev (flags (:standard -warn-error -A)))
+     (release (flags (:standard -warn-error -A))
+              (ocamlopt_flags (:standard -O3))))
