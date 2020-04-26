@@ -17,7 +17,7 @@ open Raw_hflz
 %token DEF_G "=v"
 %token DEF_L "=m"
 
-%token PLUS  "+" MINUS "-" STAR "*" SLASH "/" NEG
+%token PLUS "+" MINUS "-" STAR "*" SLASH "/" NEG
 %token EQ "=" NEQ "<>" LE "<=" GE ">=" /* LT "<" GT ">" */
 %token AND "&&" OR "||"
 
@@ -26,7 +26,7 @@ open Raw_hflz
 %right OR
 %right AND
 %left PLUS MINUS
-%left STAR
+%left STAR SLASH
 %nonassoc NEG
 
 %type <Raw_hflz.hes> hes
