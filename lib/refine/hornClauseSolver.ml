@@ -420,7 +420,7 @@ module Hoice = struct
               | _ -> assert false
             in PredVarMap.add_exn acc ~key:pv ~data:[formula]
           end
-      | _ -> assert false
+      | _ -> failwith @@ "Unknown output: "^out
 end
 
 module FpatSolver = struct
