@@ -39,7 +39,8 @@ let add_mesure_time tag f =
 let all_start = Unix.gettimeofday ()
 let report_times () =
   let total = Unix.gettimeofday() -. all_start in
-  let kvs = Hashtbl.to_alist times @ [("total", total)] in
+  let kvs = Hashtbl.to_alist times @ [("total", total)] 
+          |> List.sort ~compare:(Fn.on fst String.compare) in
   match List.max_elt ~compare (List.map kvs ~f:(String.length<<<fst)) with
   | None -> Print.pr "no time records"
   | Some max_len ->
