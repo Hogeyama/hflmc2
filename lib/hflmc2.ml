@@ -30,6 +30,12 @@ let measure_time f =
   result, stop -. start
 
 let times = Hashtbl.create (module String)
+let () =
+  Hashtbl.add_exn times ~key:"Abstraction" ~data:0.0;
+  Hashtbl.add_exn times ~key:"Refine" ~data:0.0;
+  Hashtbl.add_exn times ~key:"Modelcheck" ~data:0.0;
+  ()
+
 let add_mesure_time tag f =
   let r, time = measure_time f in
   let if_found t = Hashtbl.set times ~key:tag ~data:(t+.time) in
