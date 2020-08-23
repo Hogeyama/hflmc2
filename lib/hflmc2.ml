@@ -11,11 +11,14 @@ open Syntax
 let log_src = Logs.Src.create "Main"
 module Log = (val Logs.src_log @@ log_src)
 
-type result = [ `Valid | `Invalid ]
+type result = [ `Valid of int | `Invalid of int ]
 
-let show_result = function
-  | `Valid      -> "Valid"
-  | `Invalid    -> "Invalid"
+let show_result : result -> string = function
+  | `Valid _     -> "Valid"
+  | `Invalid _   -> "Invalid"
+let loop_count_of_result : result -> int = function
+  | `Valid x -> x
+  | `Invalid x -> x
 
 module CexSet = Set.Make'(Modelcheck.Counterexample.Normalized)
 (* module CexSet = Set.Make'(Modelcheck.Counterexample) *)
@@ -93,7 +96,7 @@ let update_config c = match () with
 
 exception NoProgress
 
-let rec cegar_loop (config : config) prev_cexs loop_count psi gamma =
+let rec cegar_loop (config : config) prev_cexs loop_count psi gamma : result =
   Log.app begin fun m -> m ~header:"TopOfLoop" "@[<v>Loop count: %d%s@]"
       loop_count
       (if config.retry=0 then "" else " (retry "^string_of_int config.retry^")")
@@ -112,7 +115,7 @@ let rec cegar_loop (config : config) prev_cexs loop_count psi gamma =
   (* Modelcheck *)
   match add_mesure_time "Modelcheck" @@ fun () -> Modelcheck.run phi with
   | Ok() ->
-      `Valid
+      `Valid loop_count
   | Error cex ->
       let module C = Modelcheck.Counterexample in
       let cex = C.simplify cex in
@@ -146,9 +149,9 @@ let rec cegar_loop (config : config) prev_cexs loop_count psi gamma =
           | Some new_gamma ->
               cegar_loop !orig_config next_cexs (loop_count+1) psi new_gamma
           | None ->
-              `Invalid
+              `Invalid loop_count
 
-let main file =
+let main file : result =
   let orig_psi, orig_gamma = Syntax.parse_file file in
   Log.app begin fun m -> m ~header:"Input" "%a"
     Print.(hflz_hes simple_ty_) orig_psi

@@ -14,8 +14,10 @@ let () =
     begin match Hflmc2.main file with
     | r ->
         Fmt.pr "@[<v 2>Verification Result:@,%s@]@." @@ Hflmc2.show_result r;
-        if Logs.Src.level Hflmc2.log_src <> None
-          then Hflmc2.report_times()
+        Fmt.pr "@[<v 2>Loop Count:@,%d@]@." @@ Hflmc2.loop_count_of_result r;
+        if Logs.Src.level Hflmc2.log_src <> None then begin
+          Hflmc2.report_times()
+        end
     | exception Hflmc2.NoProgress ->
         Printf.eprintf "NoProgress"; exit 1
     | exception
