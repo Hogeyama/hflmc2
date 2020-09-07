@@ -327,11 +327,17 @@ let strongest_post_cond : Formula.t -> Formula.t array -> int list list =
     end;
     to_index_repr ~polality:`Neg @@ Formula.mk_ands bs
 
+(* FIXME: weakest_pre_cond true [||] = falseになる
+ * とりあえずad hocに直したが原因が分からず *)
 let weakest_pre_cond : Formula.t -> Formula.t array -> int list list =
   fun phi preds ->
-    let bs = weakest_pre_cond' phi preds in
-    Log.debug begin fun m -> m ~header:"strongest_post_cond" "%a"
-      Print.(list pp_bformula) bs
-    end;
-    to_index_repr ~polality:`Pos @@ Formula.mk_ors bs
+    if is_valid phi
+    then
+      to_index_repr ~polality:`Pos @@ Formula.mk_bool true
+    else
+      let bs = weakest_pre_cond' phi preds in
+      Log.debug begin fun m -> m ~header:"weakest_post_cond" "%a"
+        Print.(list pp_bformula) bs
+      end;
+      to_index_repr ~polality:`Pos @@ Formula.mk_ors bs
 
