@@ -146,8 +146,8 @@ let rec cegar_loop (config : config) prev_cexs loop_count psi gamma : result =
             begin match add_mesure_time "Refine" @@ fun () ->
               Refine.run psi ncex gamma
             with
-            | `Refined new_gamma -> Some new_gamma
-            | `Feasible -> None
+              | `Refined new_gamma -> Some new_gamma
+              | `Feasible -> None
             end
           in new_gamma, next_cexs
         in

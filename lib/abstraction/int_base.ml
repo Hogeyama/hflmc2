@@ -284,46 +284,7 @@ let coerce_core
           end
         end
       in
-      if false then begin
-        (* b1 &&' k true ||' b2 &&' k true ~~> (b1 ||' b2) &&' k true *)
-        let _IsJs = _IJs
-          (* Group by equality of Js *)
-          |> List.sort ~compare:Fn.(on snd [%compare : Int.t List.t List.t])
-          |> List.group ~break:Fn.(on snd (<>))
-          (* Merge *)
-          |> List.map ~f:begin fun g ->
-               let _Js = snd @@ List.hd_exn g in
-               let _Is = List.map ~f:fst g
-                 (* Remove I which has its subset in the same group *)
-                 |> List.maximals' Fn.(flip List.subset)
-               in
-               (_Is, _Js)
-             end
-        in
-        List.map _IsJs ~f:begin fun (_Is,_Js) ->
-          let cond =
-            let mk_var i = Hfl.mk_var (name_of @@ Array.get qs i) in
-            Hfl.mk_ors ~kind:`Inserted @@
-              List.map _Is ~f:begin fun _I ->
-                Hfl.mk_ands ~kind:`Inserted @@
-                  List.map _I ~f:mk_var
-              end
-          in
-          let require =
-            let mk_atom _J =
-              let subst =
-                List.map one_to_k ~f:begin fun j ->
-                  name_of (Array.get ps j),
-                  Hfl.Bool (List.mem ~equal:Int.equal _J j)
-                end
-              in
-              Trans.Subst.Hfl.hfl (IdMap.of_list subst) phi
-            in
-            Hfl.mk_ands ~kind:`Inserted @@ List.map ~f:mk_atom _Js
-          in
-          Hfl.mk_ands ~kind:`Inserted [cond; require]
-        end
-      end else begin
+      begin
         let _IJs = _IJs
           (* Group by equality of Js *)
           |> List.sort ~compare:Fn.(on snd [%compare : Int.t List.t List.t])
@@ -364,10 +325,10 @@ let coerce_core_cartesian
       -> Formula.t array
       -> Hfl.t =
   fun guard phi ps qs ->
-    Log.info begin fun m -> m ~header:"Coerce:Size" "%d ~> %d"
+    Log.info begin fun m -> m ~header:"Cartesian:Coerce:Size" "%d ~> %d"
       (Array.length ps) (Array.length qs)
     end;
-    Log.info begin fun m -> m ~header:"Coerce" "%a ~> %a"
+    Log.info begin fun m -> m ~header:"Cartesian:Coerce" "%a ~> %a"
       Print.(list_set formula) (Array.to_list ps)
       Print.(list_set formula) (Array.to_list qs)
     end;
@@ -386,7 +347,7 @@ let coerce_core_cartesian
             end |> Formula.mk_ands
           end |> Formula.mk_ors
         in
-        m ~header:"CoerceAtom" "@[%a ⊧ %a ===>@;<1 2>%a@]"
+        m ~header:"Cartesian:CoerceAtom" "@[%a ⊧ %a ===>@;<1 2>%a@]"
           Print.formula guard
           Print.formula _Q
           Print.formula p
