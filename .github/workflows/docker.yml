@@ -24,8 +24,10 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           load: true
+          push: true
           target: build
-          cache-from: type=registry,ref=hogeyama/hflmc2:dependency
+          cache-from: type=registry,ref=hogeyama/hflmc2:build
+          cache-to: type=inline
           tags: hogeyama/hflmc2:build
 
       - name: Test
@@ -36,6 +38,3 @@ jobs:
         with:
           push: true
           tags: hogeyama/hflmc2:latest
-
-      - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
