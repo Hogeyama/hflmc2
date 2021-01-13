@@ -85,9 +85,10 @@ RUN     eval `opam config env` && \
         sudo cp `which hflmc2` /bin
 COPY    .circleci/horsat2 /bin
 RUN     sudo chmod 755 /bin/horsat2
+ENV     LD_LIBRARY_PATH /home/opam/.opam/4.08/lib/z3
 
 ################################################################################
-# build
+# Minimize
 ################################################################################
 
 FROM ubuntu:20.04
