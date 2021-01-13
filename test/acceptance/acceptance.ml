@@ -5,7 +5,7 @@ let args = [| "dummy_file"
             ; "--quiet"
             ; "--no-inlining"
             |]
-let _ = Hflmc2.Options.parse ~argv:(Array.append args Sys.argv) ()
+let _ = Hflmc2.Options.parse ~argv:(Array.append args (Sys.get_argv ())) ()
 
 (* TODO duneのrootを手に入れる方法はないものか．
  * Sys.getenv_exn "OWD" がそれっぽいけどドキュメントにはなってなさそう
@@ -19,9 +19,9 @@ let measure_time f =
   result, stop -. start
 
 type test_sort =
-  { name     : string
-  ; dir      : string
-  ; succsess : Hflmc2.result
+  { name   : string
+  ; dir    : string
+  ; expect : [ `Valid | `Invalid ]
   }
 
 let check : test_sort -> bool =
@@ -44,16 +44,20 @@ let check : test_sort -> bool =
         let pudding = String.(init (max_len - length file) ~f:(Fn.const ' ')) in
         sort.dir ^ "/" ^ file ^ pudding
       in
-      match result with
-      (* succsess *)
-      | Ok res when Core.Poly.equal res sort.succsess ->
+      match result, sort.expect with
+      (* succsess: invalid *)
+      | Ok (`Invalid _), `Invalid ->
           Fmt.pf Fmt.stdout "input/ok/%s %f sec@." path_to_show time
-      (* failure *)
-      | Ok res ->
+      (* succsess: valid *)
+      | Ok (`Valid _), `Valid ->
+          Fmt.pf Fmt.stdout "input/ok/%s %f sec@." path_to_show time
+      (* failure: unmatched *)
+      | Ok res, _ ->
           count := !count + 1;
           Fmt.pf Fmt.stderr "input/ok/%s %s@."
             path_to_show (Hflmc2.show_result res)
-      | Error e ->
+      (* failure: error *)
+      | Error e, _ ->
           count := !count + 1;
           Fmt.pf Fmt.stdout "@[<2>input/ok/%s failed with error:@ %s@]@."
             path_to_show (Exn.to_string e)
@@ -64,7 +68,7 @@ let check : test_sort -> bool =
 
 let () =
   let succsess = List.for_all ~f:Fn.id
-      [ check { name = "invalid"; succsess = `Invalid; dir = "invalid" }
-      ; check { name = "  valid"; succsess = `Valid  ; dir = "valid"   }
+      [ check { name = "invalid"; expect = `Invalid; dir = "invalid" }
+      ; check { name = "  valid"; expect = `Valid  ; dir = "valid"   }
       ]
   in if not succsess then exit 1
