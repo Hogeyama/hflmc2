@@ -30,8 +30,12 @@ jobs:
       - name: Test
         run:  docker run --rm hogeyama/hflmc2:build opam exec -- dune runtest
 
+      - name: Inject slug/short variables
+        uses: rlespinasse/github-slug-action@v3.x
+
       - name: Push
         uses: docker/build-push-action@v2
         with:
           push: true
           tags: hogeyama/hflmc2:latest
+        if: ${{ env.GITHUB_REF_SLUG == 'master' }}
