@@ -1,6 +1,18 @@
 
 ################################################################################
-# Dependencies
+# HoICE
+################################################################################
+
+FROM    rust:slim-buster as rust
+RUN     apt-get update && \
+        apt-get install -y \
+        git
+RUN     git clone https://github.com/Hogeyama/hoice /root/hoice
+WORKDIR /root/hoice
+RUN     cargo install --path .
+
+################################################################################
+# Other Dependencies
 ################################################################################
 
 FROM ocaml/opam2:4.08 as dependency
@@ -49,6 +61,7 @@ RUN opam update && opam install -y\
  ppx_sexp_conv.v0.13.0\
  spawn.v0.13.0\
  re2.v0.13.0
+ENV LD_LIBRARY_PATH /home/opam/.opam/4.08/lib/z3
 
 # fpat
 ######
@@ -72,11 +85,11 @@ RUN     eval `opam config env` && \
 RUN     git clone https://github.com/hopv/horsat2 $HOME/depend/horsat2
 WORKDIR $HOME/depend/horsat2
 RUN     git checkout 22c8b3e5d6a5751f28824182d4f27728e3acbf82
-RUN     make && cp ./horsat2 ~/
+RUN     make && sudo cp ./horsat2 /bin
 
-# ENV
-#####
+# import HoICE
+##############
+COPY --from=rust /usr/local/cargo/bin/hoice /bin
 
-ENV     LD_LIBRARY_PATH /home/opam/.opam/4.08/lib/z3
 WORKDIR $HOME
 
