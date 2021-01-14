@@ -40,6 +40,7 @@ COPY --from=dependency /home/opam/.opam/4.08/share/apron/lib/lib*       /usr/lib
 COPY --from=dependency /home/opam/.opam/4.08/lib/z3/lib*                /usr/lib/x86_64-linux-gnu/
 COPY --from=dependency /bin/horsat2                                     /bin/
 COPY --from=dependency /bin/hoice                                       /bin/
+COPY --from=dependency /bin/z3                                          /bin/
 COPY --from=build      /home/opam/.opam/4.08/bin/hflmc2                 /bin/
 
 # WORKDIR $HOME

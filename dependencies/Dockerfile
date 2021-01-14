@@ -6,10 +6,16 @@
 FROM    rust:slim-buster as rust
 RUN     apt-get update && \
         apt-get install -y \
-        git
-RUN     git clone https://github.com/Hogeyama/hoice /root/hoice
+        git \
+        wget \
+        unzip
+RUN     git clone -b option-no-inlining https://github.com/Hogeyama/hoice /root/hoice
 WORKDIR /root/hoice
 RUN     cargo install --path .
+WORKDIR /root
+RUN     wget https://github.com/Z3Prover/z3/releases/download/z3-4.7.1/z3-4.7.1-x64-ubuntu-16.04.zip -O /root/z3.zip \
+        && unzip /root/z3.zip \
+        && mv z3-4.7.1-x64-ubuntu-16.04/bin/z3 /bin/z3
 
 ################################################################################
 # Other Dependencies
@@ -90,6 +96,7 @@ RUN     make && sudo cp ./horsat2 /bin
 # import HoICE
 ##############
 COPY --from=rust /usr/local/cargo/bin/hoice /bin
+COPY --from=rust /bin/z3 /bin
 
 WORKDIR $HOME
 
