@@ -66,6 +66,14 @@ RUN     eval `opam config env` && \
         make && \
         make install
 
+# horsat2
+#########
+
+RUN     git clone https://github.com/hopv/horsat2 $HOME/depend/horsat2
+WORKDIR $HOME/depend/horsat2
+RUN     git checkout 22c8b3e5d6a5751f28824182d4f27728e3acbf82
+RUN     make && cp ./horsat2 ~/
+
 # ENV
 #####
 

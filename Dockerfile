@@ -22,9 +22,7 @@ COPY    --chown=opam:opam ./dune-project  $HOME/hflmc2/dune-project
 RUN     eval `opam config env` && \
         dune build && \
         dune install && \
-        sudo cp `which hflmc2` /bin
-COPY    dependencies/horsat2 /bin
-RUN     sudo chmod 755 /bin/horsat2
+        sudo cp `which hflmc2` ~/
 ENV     LD_LIBRARY_PATH /home/opam/.opam/4.08/lib/z3
 
 ################################################################################
@@ -32,8 +30,6 @@ ENV     LD_LIBRARY_PATH /home/opam/.opam/4.08/lib/z3
 ################################################################################
 
 FROM ubuntu:20.04
-COPY --from=dependency /home/opam/.opam/4.08/share/apron/lib/lib*       /usr/lib/x86_64-linux-gnu/
-COPY --from=dependency /home/opam/.opam/4.08/lib/z3/lib*                /usr/lib/x86_64-linux-gnu/
 COPY --from=dependency /usr/lib/x86_64-linux-gnu/libglpk.*              /usr/lib/x86_64-linux-gnu/
 COPY --from=dependency /usr/lib/x86_64-linux-gnu/libmpfr.*              /usr/lib/x86_64-linux-gnu/
 COPY --from=dependency /usr/lib/x86_64-linux-gnu/libgmp.*               /usr/lib/x86_64-linux-gnu/
@@ -42,8 +38,10 @@ COPY --from=dependency /usr/lib/x86_64-linux-gnu/libcolamd.*            /usr/lib
 COPY --from=dependency /usr/lib/x86_64-linux-gnu/libltdl.*              /usr/lib/x86_64-linux-gnu/
 COPY --from=dependency /usr/lib/x86_64-linux-gnu/libgomp.*              /usr/lib/x86_64-linux-gnu/
 COPY --from=dependency /usr/lib/x86_64-linux-gnu/libsuitesparseconfig.* /usr/lib/x86_64-linux-gnu/
-COPY --from=build /bin/horsat2 /bin/
-COPY --from=build /bin/hflmc2 /bin/
+COPY --from=dependency /home/opam/.opam/4.08/share/apron/lib/lib*       /usr/lib/x86_64-linux-gnu/
+COPY --from=dependency /home/opam/.opam/4.08/lib/z3/lib*                /usr/lib/x86_64-linux-gnu/
+COPY --from=dependency /home/opam/horsat2                               /bin/
+COPY --from=build      /home/opam/hflmc2                                /bin/
 
 # WORKDIR $HOME
 CMD ["hflmc2"]
