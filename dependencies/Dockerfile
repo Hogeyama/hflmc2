@@ -10,7 +10,7 @@ ENV LANG C.UTF-8
 ################
 
 RUN sudo apt-get update && \
-    sudo apt-get install -y --assume-yes \
+    sudo apt-get install -y \
       apt-utils \
       pkg-config \
       autoconf \
